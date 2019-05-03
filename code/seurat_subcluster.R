@@ -26,21 +26,21 @@ sessionInfo()
 
 ## Inputs
 in_seurat <- paste0(
-  "/u/flashscratch/d/dpolioud/p1_p2_seurat/20190215"
-  , "/p1_p2_filtered_rmp27.rdat")
+  "/u/flashscratch/d/dpolioud/seurat/20190427"
+  , "/p1_p2_p3_p4_filtered_rmp27.rdat")
 
 ## Variables
-script_name <- "p1_p2_seurat_subcluster.R"
+script_name <- "seurat_subcluster.R"
 date <- format(Sys.Date(), "%Y%m%d")
 # date <- "20190221"
 
 ## Outputs
 out_seurat <- paste0(
-  "/u/flashscratch/d/dpolioud/p1_p2_seurat_subcluster/", date
-  , "/cca_lib_125/p1_p2_seurat_subcluster_astro.rdat")
+  "/u/flashscratch/d/dpolioud/seurat_subcluster/", date
+  , "/cca_lib_110/seurat_subcluster_astro.rdat")
 out_table <- paste0(
-  "../analysis/p1_p2_seurat_subcluster/", date
-  , "/tables/cca_lib_125/p1_p2_seurat_subcluster_astro_")
+  "../analysis/seurat_subcluster/", date
+  , "/tables/cca_lib_110/seurat_subcluster_astro_")
 
 # Make directories
 dir.create(dirname(out_seurat), recursive = TRUE)
@@ -52,26 +52,26 @@ dir.create(dirname(out_table), recursive = TRUE)
 main_function <- function(){
 
   load(in_seurat)
-  Idents(p1_p2_so) <- p1_p2_so[["RNA_snn_res.0.6"]]
+  Idents(p1_p2_p3_p4_so) <- p1_p2_p3_p4_so[["RNA_snn_res.0.6"]]
 
-  p1_p2_astro_so <- subset(p1_p2_so, idents = c(2,18,19,22))
+  subset_so <- subset(p1_p2_p3_p4_so, idents = c(3,14,22))
     # , subset = clinical_dx == "Control")
-  rm(p1_p2_so)
+  rm(p1_p2_p3_p4_so)
 
-  p1_p2_astro_so <- run_cca_seurat_pipeline(p1_p2_astro_so)
-  save(p1_p2_astro_so, file = out_seurat)
+  subset_so <- run_cca_seurat_pipeline(subset_so)
+  save(subset_so, file = out_seurat)
 
-  # p1_p2_astro_so <- run_seurat_pipeline(p1_p2_astro_so)
-  # save(p1_p2_astro_so, file = out_seurat)
+  # subset_so <- run_seurat_pipeline(subset_so)
+  # save(subset_so, file = out_seurat)
   #
   # # set cluster identities to desired clustering
-  # Idents(p1_p2_astro_so) <- p1_p2_astro_so[["RNA_snn_res.0.6"]]
+  # Idents(subset_so) <- subset_so[["RNA_snn_res.0.6"]]
   #
-  # top_expressed_genes_tb <- find_top_cluster_expressed_genes(p1_p2_astro_so)
-  # save(p1_p2_astro_so, top_expressed_genes_tb, file = out_seurat)
+  # top_expressed_genes_tb <- find_top_cluster_expressed_genes(subset_so)
+  # save(subset_so, top_expressed_genes_tb, file = out_seurat)
   #
-  # cluster_enriched_de_tb <- find_cluster_enriched_genes(p1_p2_astro_so)
-  # save(p1_p2_astro_so, top_expressed_genes_tb, cluster_enriched_de_tb
+  # cluster_enriched_de_tb <- find_cluster_enriched_genes(subset_so)
+  # save(subset_so, top_expressed_genes_tb, cluster_enriched_de_tb
   #   , file = out_seurat)
   # write.csv(x = cluster_enriched_de_tb
   #   , file = paste0(out_table, "cluster_enriched_vs_all.csv")
@@ -179,11 +179,11 @@ filter_expression_matrix_for_de <- function(
     # Expressed > 0 counts in > X% of cells in cluster
     if (! is.null(cluster_id)) {
       # Subset expression matrix to cluster
-      cdf <- as.matrix(expr_m)[ ,cell_cluster_key == cluster_id]
+      cdf <- expr_m[ ,cell_cluster_key == cluster_id]
     }
     if (! is.null(cell_id)) {
       # Subset expression matrix to cluster
-      cdf <- as.matrix(expr_m)[ ,colnames(expr_m) %in% cell_id]
+      cdf <- expr_m[ ,colnames(expr_m) %in% cell_id]
     }
     # Expressed > 0 counts in > X% of cells in cluster
     idxp <- (rowSums(cdf > 0) / ncol(cdf)) > (min_percent / 100)
@@ -217,9 +217,9 @@ filter_expression_matrix_for_de <- function(
     idxf <- rep(TRUE, nrow(expr_m))
   }
 
-  # Filter expr_df
-  expr_df <- as.matrix(expr_m[idxp & idxf, ])
-  return(expr_df)
+  # Filter expr_m
+  expr_m <- expr_m[idxp & idxf, ]
+  return(expr_m)
 }
 
 ## Function: DE Linear model
@@ -232,21 +232,21 @@ filter_expression_matrix_for_de <- function(
 # 5            VZ   8.7  0.45139297  0.856908177
 # 6            VZ   9.1  0.27861748 -0.248868277
 # mod: "y~ExpCondition+RIN.y+Seq.PC1+Seq.PC2"
-run_de_with_lm_with_linear_model <- function(expr_df, terms_df, mod) {
+run_de_with_lm_with_linear_model <- function(expr_m, terms_df, mod) {
   print("run_de_with_lm_with_linear_model")
-  lmmod <- apply(as.matrix(expr_df), 1
+  lmmod <- apply(expr_m, 1
     , function(y) {
       mod <- as.formula(mod)
       lm(mod, data = terms_df)})
-  coefmat <- matrix(NA, nrow = nrow(expr_df)
+  coefmat <- matrix(NA, nrow = nrow(expr_m)
     , ncol = length(coef(lmmod[[1]])))
-  pvalmat <- matrix(NA, nrow = nrow(expr_df)
+  pvalmat <- matrix(NA, nrow = nrow(expr_m)
     , ncol = length(summary(lmmod[[1]])[[4]][ ,4]))
   colnames(coefmat) <- names(coef(lmmod[[1]]))
-  rownames(coefmat) <- rownames(expr_df)
+  rownames(coefmat) <- rownames(expr_m)
   colnames(pvalmat) <- names(summary(lmmod[[1]])[[4]][ ,4])
-  rownames(pvalmat) <- rownames(expr_df)
-  for (i in 1:nrow(expr_df)) {
+  rownames(pvalmat) <- rownames(expr_m)
+  for (i in 1:nrow(expr_m)) {
     if (i%%100 == 0) {cat(".")}
     coefmat[i, ] <- coef(lmmod[[i]])
     pvalmat[i, ] <- summary(lmmod[[i]])[[4]][ ,4]
@@ -287,10 +287,10 @@ format_lm_de <- function(
 run_de_with_lm <- function(cluster_id, seurat_obj){
 
   print("run_de_with_lm")
-  print(paste0("Calculating DE for subcluster: ", cluster_id))
+  print(paste0("Calculating DE for cluster: ", cluster_id))
 
   # Filter cells
-  expr_df <- filter_expression_matrix_for_de(
+  expr_m <- filter_expression_matrix_for_de(
     expr_m = GetAssayData(seurat_obj, slot = "data")
     , min_percent = 10
     # , fold_change = 0
@@ -300,18 +300,19 @@ run_de_with_lm <- function(cluster_id, seurat_obj){
 
   # DE Linear model
   terms_df <- data.frame(seurat_obj[[c("RNA_snn_res.0.6"), drop = FALSE]])
-  terms_df <- terms_df[row.names(terms_df) %in% colnames(expr_df), , drop = FALSE]
+  terms_df <- terms_df[row.names(terms_df) %in% colnames(expr_m), , drop = FALSE]
 
   # Add term TRUE/FALSE cell is in cluster
   terms_df$cluster <- rep(FALSE, nrow(seurat_obj[[]]))
   terms_df$cluster[Idents(seurat_obj) == cluster_id] <- TRUE
   mod <- "y ~ cluster"
-  lm_coef_pval_l <- run_de_with_lm_with_linear_model(expr_df = expr_df, terms_df = terms_df, mod = mod)
+  lm_coef_pval_l <- run_de_with_lm_with_linear_model(
+    expr_m = expr_m, terms_df = terms_df, mod = mod)
 
   # Format LM output into data frame
   cluster_enriched_de_df <- format_lm_de(
     lm_coef_pval_l = lm_coef_pval_l
-    , expr_m = expr_df
+    , expr_m = expr_m
     , cluster_id = cluster_id
     , cell_cluster_key = Idents(seurat_obj))
 
@@ -372,7 +373,7 @@ run_cca_seurat_pipeline <- function(seurat_obj){
   .libPaths()
   require(Seurat)
 
-  seurat_obj <- CreateSeuratObject(raw.data = expr_m, project = "p1_p2_astro")
+  seurat_obj <- CreateSeuratObject(raw.data = expr_m, project = "p1_p2_p3_p4_astro")
   seurat_obj <- AddMetaData(object = seurat_obj, metadata = metadata_df)
 
   lib_ids <- seurat_obj@meta.data["library_id"] %>% unique() %>% pull()
@@ -416,7 +417,7 @@ run_cca_seurat_pipeline <- function(seurat_obj){
   }
 
   # Run multi-set CCA
-  seurat_obj <- RunMultiCCA(ob.list, genes.use = genes.use, num.ccs = 50)
+  seurat_obj <- RunMultiCCA(ob.list, genes.use = genes.use, num.ccs = 25)
 
   # CC Selection
   # MetageneBicorPlot(seurat_obj, grouping.var = "library_id", dims.eval = 1:100)
@@ -426,7 +427,7 @@ run_cca_seurat_pipeline <- function(seurat_obj){
   seurat_obj <- CalcVarExpRatio(object = seurat_obj
     , reduction.type = "pca"
     , grouping.var = "library_id"
-    , dims.use = 1:25)
+    , dims.use = 1:10)
 
   # seurat_obj <- SubsetData(
   #   seurat_obj
@@ -438,20 +439,20 @@ run_cca_seurat_pipeline <- function(seurat_obj){
     seurat_obj
     , reduction.type = "cca"
     , grouping.var = "library_id"
-    , dims.align = 1:25)
+    , dims.align = 1:10)
 
   # t-SNE and Clustering
   seurat_obj <- FindClusters(
     seurat_obj
     , reduction.type = "cca.aligned"
-    , dims.use = 1:25
+    , dims.use = 1:10
     , save.SNN = T
     , resolution = 0.6)
 
   seurat_obj <- RunTSNE(
     seurat_obj
     , reduction.use = "cca.aligned"
-    , dims.use = 1:25
+    , dims.use = 1:10
     , resolution = 0.6)
 
   return(seurat_obj)

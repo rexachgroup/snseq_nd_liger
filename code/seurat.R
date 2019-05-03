@@ -1,6 +1,6 @@
 # Damon Polioudakis
 # 2019-02-09
-# Run Seurat on P1 and P2
+# Run Seurat
 
 # Must load modules:
 #  module load gcc/4.9.3
@@ -25,7 +25,7 @@ source("ggplot_theme.R")
 # require(xlsx)
 
 ## Inputs
-in_10x <- "../data/20190418/P1_P2_P3_P4/outs/filtered_feature_bc_matrix/"
+in_10x <- "../data/20190426/P1_P2_P3_P4/outs/filtered_feature_bc_matrix/"
 # metadata
 p1_mt_df <- read_csv("../metadata/PGC_group1_071018.csv")
 p2_mt_df <- read_csv("../metadata/PCG_round2.csv")
@@ -35,17 +35,17 @@ p4_mt_df <- read_csv("../metadata/PCG_round4samples.csv")
 bm_tb <- read_csv("../../RNAseq_singlecellfetal/source/BiomaRt_Compile_GeneInfo_GRCh38_Ensembl87.csv") %>% as_tibble %>% select(-X1)
 
 ## Variables
-script_name <- "p1_p2_seurat.R"
+script_name <- "seurat.R"
 date <- format(Sys.Date(), "%Y%m%d")
 
 ## Outputs
-out_graph <- paste0("../analysis/seurat/graphs/", date, "/p1_p2_p3_p4_seurat_")
+out_graph <- paste0("../analysis/seurat/", date, "/graphs/p1_p2_p3_p4_seurat_")
 out_seurat <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/p1_p2_p3_p4_filtered_rmp27.rdat")
+  , "/p1_p2_p3_p4_filtered_rmp27_test.rdat")
 out_seurat_raw <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/p1_p2_p3_p4_raw.rdat")
+  , "/p1_p2_p3_p4_raw_test.rdat")
 
 # Make directories
 dir.create(dirname(out_graph), recursive = TRUE)
@@ -56,26 +56,30 @@ dir.create(dirname(out_seurat), recursive = TRUE)
 
 main_function <- function(){
 
-  p1_p2_raw_so <- make_seurat_object(
-    downsample_data = T, ds_n_genes = 6000, ds_n_cells = 3000)
-  save(p1_p2_raw_so, file = out_seurat_raw)
+  # p1_p2_p3_p4_raw_so <- make_seurat_object(
+  #   downsample_data = FALSE, ds_n_genes = 6000, ds_n_cells = 3000)
+  # save(p1_p2_p3_p4_raw_so, file = out_seurat_raw)
+  #
+  # p1_p2_p3_p4_so <- qc_filter_genes_and_cells(
+  #     seurat_obj = p1_p2_p3_p4_raw_so
+  #     , libraries_to_remove = "P2_7"
+  #     , min_number_genes = 200
+  #     , max_percent_mito = 5
+  #     , min_cells_per_gene = 3)
+  #
+  # p1_p2_p3_p4_so <- run_seurat_pipeline(p1_p2_p3_p4_so)
+  # save(p1_p2_p3_p4_so, file = out_seurat)
+  #
+  # top_expressed_genes_tb <- find_top_cluster_expressed_genes(
+  #   seurat_obj = p1_p2_p3_p4_so)
+  # save(p1_p2_p3_p4_so, top_expressed_genes_tb, file = out_seurat)
 
-  p1_p2_so <- qc_filter_genes_and_cells(
-      seurat_obj = p1_p2_raw_so
-      , libraries_to_remove = "P2_7"
-      , min_number_genes = 200
-      , max_percent_mito = 5
-      , min_cells_per_gene = 3)
+  load(paste0(
+    "/u/flashscratch/d/dpolioud/seurat/20190427"
+    , "/p1_p2_p3_p4_filtered_rmp27.rdat"))
 
-  p1_p2_so <- run_seurat_pipeline(p1_p2_so)
-  save(p1_p2_so, file = out_seurat)
-
-  top_expressed_genes_tb <- find_top_cluster_expressed_genes(
-    seurat_obj = p1_p2_so)
-  save(p1_p2_so, top_expressed_genes_tb, file = out_seurat)
-
-  cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = p1_p2_so)
-  save(p1_p2_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
+  cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = p1_p2_p3_p4_so)
+  save(p1_p2_p3_p4_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
 
 }
 ################################################################################
@@ -98,12 +102,12 @@ make_seurat_object <- function(
             # include MT genes
             , grep(pattern = "^MT-", x = rownames(.))))
           , sample(1:ncol(.), ds_n_cells)] %>%
-        CreateSeuratObject(counts = ., project = "p1_p2")
+        CreateSeuratObject(counts = ., project = "p1_p2_p3_p4")
   # run full dataset
   } else {
     seurat_obj <-
       Read10X(data.dir = in_10x)[,] %>%
-        CreateSeuratObject(counts = ., project = "p1_p2")
+        CreateSeuratObject(counts = ., project = "p1_p2_p3_p4")
   }
 
   ## Add metadata
@@ -116,8 +120,8 @@ make_seurat_object <- function(
     return(metadata_tb)
   }
 
-  format_metadata_p1_p2 <- function(){
-    print("format_metadata_p1_p2")
+  format_metadata_p1_p2_p3_p4 <- function(){
+    print("format_metadata_p1_p2_p3_p4")
     metadata_tb <- format_metadata(p1_mt_df) %>%
       bind_rows(., format_metadata(p2_mt_df)) %>%
       bind_rows(., format_metadata(p3_mt_df)) %>%
@@ -186,7 +190,7 @@ make_seurat_object <- function(
     metadata_df$number_cells_per_gene <- rowSums(seurat_obj@assays$RNA@counts > 0)
   }
 
-  metadata_df <- format_metadata_p1_p2()
+  metadata_df <- format_metadata_p1_p2_p3_p4()
   seurat_obj <- AddMetaData(object = seurat_obj, metadata = metadata_df)
 
   return(seurat_obj)
@@ -303,11 +307,11 @@ filter_expression_matrix_for_de <- function(
     # Expressed > 0 counts in > X% of cells in cluster
     if (! is.null(cluster_id)) {
       # Subset expression matrix to cluster
-      cdf <- as.matrix(expr_m)[ ,cell_cluster_key == cluster_id]
+      cdf <- expr_m[ ,cell_cluster_key == cluster_id]
     }
     if (! is.null(cell_id)) {
       # Subset expression matrix to cluster
-      cdf <- as.matrix(expr_m)[ ,colnames(expr_m) %in% cell_id]
+      cdf <- expr_m[ ,colnames(expr_m) %in% cell_id]
     }
     # Expressed > 0 counts in > X% of cells in cluster
     idxp <- (rowSums(cdf > 0) / ncol(cdf)) > (min_percent / 100)
@@ -341,9 +345,9 @@ filter_expression_matrix_for_de <- function(
     idxf <- rep(TRUE, nrow(expr_m))
   }
 
-  # Filter expr_df
-  expr_df <- as.matrix(expr_m[idxp & idxf, ])
-  return(expr_df)
+  # Filter expr_m
+  expr_m <- expr_m[idxp & idxf, ]
+  return(expr_m)
 }
 
 ## Function: DE Linear model
@@ -356,21 +360,21 @@ filter_expression_matrix_for_de <- function(
 # 5            VZ   8.7  0.45139297  0.856908177
 # 6            VZ   9.1  0.27861748 -0.248868277
 # mod: "y~ExpCondition+RIN.y+Seq.PC1+Seq.PC2"
-run_de_with_lm_with_linear_model <- function(expr_df, terms_df, mod) {
+run_de_with_lm_with_linear_model <- function(expr_m, terms_df, mod) {
   print("run_de_with_lm_with_linear_model")
-  lmmod <- apply(as.matrix(expr_df), 1
+  lmmod <- apply(expr_m, 1
     , function(y) {
       mod <- as.formula(mod)
       lm(mod, data = terms_df)})
-  coefmat <- matrix(NA, nrow = nrow(expr_df)
+  coefmat <- matrix(NA, nrow = nrow(expr_m)
     , ncol = length(coef(lmmod[[1]])))
-  pvalmat <- matrix(NA, nrow = nrow(expr_df)
+  pvalmat <- matrix(NA, nrow = nrow(expr_m)
     , ncol = length(summary(lmmod[[1]])[[4]][ ,4]))
   colnames(coefmat) <- names(coef(lmmod[[1]]))
-  rownames(coefmat) <- rownames(expr_df)
+  rownames(coefmat) <- rownames(expr_m)
   colnames(pvalmat) <- names(summary(lmmod[[1]])[[4]][ ,4])
-  rownames(pvalmat) <- rownames(expr_df)
-  for (i in 1:nrow(expr_df)) {
+  rownames(pvalmat) <- rownames(expr_m)
+  for (i in 1:nrow(expr_m)) {
     if (i%%100 == 0) {cat(".")}
     coefmat[i, ] <- coef(lmmod[[i]])
     pvalmat[i, ] <- summary(lmmod[[i]])[[4]][ ,4]
@@ -411,10 +415,10 @@ format_lm_de <- function(
 run_de_with_lm <- function(cluster_id, seurat_obj){
 
   print("run_de_with_lm")
-  print(paste0("Calculating DE for subcluster: ", cluster_id))
+  print(paste0("Calculating DE for cluster: ", cluster_id))
 
   # Filter cells
-  expr_df <- filter_expression_matrix_for_de(
+  expr_m <- filter_expression_matrix_for_de(
     expr_m = GetAssayData(seurat_obj, slot = "data")
     , min_percent = 10
     # , fold_change = 0
@@ -424,18 +428,19 @@ run_de_with_lm <- function(cluster_id, seurat_obj){
 
   # DE Linear model
   terms_df <- data.frame(seurat_obj[[c("RNA_snn_res.0.6"), drop = FALSE]])
-  terms_df <- terms_df[row.names(terms_df) %in% colnames(expr_df), , drop = FALSE]
+  terms_df <- terms_df[row.names(terms_df) %in% colnames(expr_m), , drop = FALSE]
 
   # Add term TRUE/FALSE cell is in cluster
   terms_df$cluster <- rep(FALSE, nrow(seurat_obj[[]]))
   terms_df$cluster[Idents(seurat_obj) == cluster_id] <- TRUE
   mod <- "y ~ cluster"
-  lm_coef_pval_l <- run_de_with_lm_with_linear_model(expr_df = expr_df, terms_df = terms_df, mod = mod)
+  lm_coef_pval_l <- run_de_with_lm_with_linear_model(
+    expr_m = expr_m, terms_df = terms_df, mod = mod)
 
   # Format LM output into data frame
   cluster_enriched_de_df <- format_lm_de(
     lm_coef_pval_l = lm_coef_pval_l
-    , expr_m = expr_df
+    , expr_m = expr_m
     , cluster_id = cluster_id
     , cell_cluster_key = Idents(seurat_obj))
 
@@ -522,7 +527,7 @@ run_cca <- function(){
   filtered_loom <- connect(filename = out_filtered_loom, mode = "r+")
   # raw_loom <- connect(filename = out_raw_loom, mode = "r+")
 
-  p1_p2_so <- Convert(from = filtered_loom, to = "seurat"
+  p1_p2_p3_p4_so <- Convert(from = filtered_loom, to = "seurat"
     , raw.data = "matrix"
     , gene.names = "row_attrs/gene_names"
     , cell.names = "col_attrs/cell_names"
@@ -539,24 +544,24 @@ run_cca <- function(){
 
   ## CCA
 
-  lib_ids <- unique(p1_p2_so@meta.data$library_id)
+  lib_ids <- unique(p1_p2_p3_p4_so@meta.data$library_id)
 
-  cell_ids_1 <- p1_p2_so@meta.data %>%
+  cell_ids_1 <- p1_p2_p3_p4_so@meta.data %>%
     rownames_to_column("cell_id") %>%
     as_tibble %>%
     filter(library_id == lib_ids[1]) %>%
     pull(cell_id)
 
-  ss_1_so <- SubsetData(p1_p2_so, cells.use = cell_ids_1)
+  ss_1_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_1)
 
   for(i in 2:length(lib_ids)){
   # for(i in 2:6){
     lib_id <- lib_ids[[i]]
     print(lib_id)
 
-    cell_ids_2 <- p1_p2_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
+    cell_ids_2 <- p1_p2_p3_p4_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
 
-    ss_2_so <- SubsetData(p1_p2_so, cells.use = cell_ids_2)
+    ss_2_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_2)
 
     ss_1_so <- RunCCA(object = ss_1_so, object2 = ss_2_so, num.cc = 100)
 
@@ -614,24 +619,24 @@ run_cca <- function(){
 
 
 
-  lib_ids <- unique(p1_p2_so@meta.data$library_id)
+  lib_ids <- unique(p1_p2_p3_p4_so@meta.data$library_id)
 
-  cell_ids_1 <- p1_p2_so@meta.data %>%
+  cell_ids_1 <- p1_p2_p3_p4_so@meta.data %>%
     rownames_to_column("cell_id") %>%
     as_tibble %>%
     filter(library_id == lib_ids[1]) %>%
     pull(cell_id)
 
-  ss_1_so <- SubsetData(p1_p2_so, cells.use = cell_ids_1)
+  ss_1_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_1)
 
   for(i in 2:length(lib_ids)){
   # for(i in 2:6){
     lib_id <- lib_ids[[i]]
     print(lib_id)
 
-    cell_ids_2 <- p1_p2_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
+    cell_ids_2 <- p1_p2_p3_p4_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
 
-    ss_2_so <- SubsetData(p1_p2_so, cells.use = cell_ids_2)
+    ss_2_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_2)
 
     ss_1_so <- RunCCA(object = ss_1_so, object2 = ss_2_so, num.cc = 100)
 
@@ -680,5 +685,5 @@ run_cca <- function(){
 # use_python("/u/local/apps/python/3.6.1/bin/python3")
 # py_config()
 #
-# pbmc <- RunUMAP(p1_p2_so, reduction.use = "pca", dims.use = 1:10)
+# pbmc <- RunUMAP(p1_p2_p3_p4_so, reduction.use = "pca", dims.use = 1:10)
 ################################################################################
