@@ -5,6 +5,7 @@
 # Must load modules:
 #  module load gcc/4.9.3
 #  module load R/3.3+
+#  module load python/3.7.2
 ################################################################################
 
 rm(list = ls())
@@ -20,12 +21,15 @@ require(viridis)
 require(tidyverse)
 require(cellrangerRkit)
 require(loomR)
+library(reticulate)
+reticulate::use_python("/u/local/apps/python/3.7.2/bin/python3", required=TRUE)
+reticulate::py_config()   # check to make sure it is configured
 source("function_library.R")
 source("ggplot_theme.R")
 # require(xlsx)
 
 ## Inputs
-in_10x <- "../data/20190426/P1_P2_P3_P4/outs/filtered_feature_bc_matrix/"
+in_10x <- "/u/project/geschwind/drewse/g_singlecell/cellranger/data/20190624/aggr_20190625/outs/filtered_feature_bc_matrix/"
 # metadata
 p1_mt_df <- read_csv("../metadata/PGC_group1_071018.csv")
 p2_mt_df <- read_csv("../metadata/PCG_round2.csv")
@@ -42,13 +46,14 @@ date <- format(Sys.Date(), "%Y%m%d")
 out_graph <- paste0("../analysis/seurat/", date, "/graphs/p1_p2_p3_p4_seurat_")
 out_seurat <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/p1_p2_p3_p4_filtered_rmp27_test.rdat")
+  , "/cellranger_v3/p1_p2_p3_p4_filtered_rmp27.rdat")
+out_seurat_test <- gsub(".rdat", "_test.rdat", out_seurat)
 out_seurat_raw <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/p1_p2_p3_p4_raw_test.rdat")
+  , "/cellranger_v3/p1_p2_p3_p4_raw_test.rdat")
 
 # Make directories
-dir.create(dirname(out_graph), recursive = TRUE)
+# dir.create(dirname(out_graph), recursive = TRUE)
 dir.create(dirname(out_seurat), recursive = TRUE)
 ################################################################################
 
@@ -56,30 +61,32 @@ dir.create(dirname(out_seurat), recursive = TRUE)
 
 main_function <- function(){
 
-  # p1_p2_p3_p4_raw_so <- make_seurat_object(
-  #   downsample_data = FALSE, ds_n_genes = 6000, ds_n_cells = 3000)
-  # save(p1_p2_p3_p4_raw_so, file = out_seurat_raw)
-  #
-  # p1_p2_p3_p4_so <- qc_filter_genes_and_cells(
-  #     seurat_obj = p1_p2_p3_p4_raw_so
-  #     , libraries_to_remove = "P2_7"
-  #     , min_number_genes = 200
-  #     , max_percent_mito = 5
-  #     , min_cells_per_gene = 3)
-  #
-  # p1_p2_p3_p4_so <- run_seurat_pipeline(p1_p2_p3_p4_so)
-  # save(p1_p2_p3_p4_so, file = out_seurat)
-  #
-  # top_expressed_genes_tb <- find_top_cluster_expressed_genes(
-  #   seurat_obj = p1_p2_p3_p4_so)
-  # save(p1_p2_p3_p4_so, top_expressed_genes_tb, file = out_seurat)
+  p1_p2_p3_p4_raw_so <- make_seurat_object(
+    downsample_data = FALSE, ds_n_genes = 6000, ds_n_cells = 3000)
+  save(p1_p2_p3_p4_raw_so, file = out_seurat_raw)
 
-  load(paste0(
-    "/u/flashscratch/d/dpolioud/seurat/20190427"
-    , "/p1_p2_p3_p4_filtered_rmp27.rdat"))
+  p1_p2_p3_p4_so <- qc_filter_genes_and_cells(
+      seurat_obj = p1_p2_p3_p4_raw_so
+      , libraries_to_remove = "P2_7"
+      , min_number_genes = 200
+      , max_percent_mito = 5
+      , min_cells_per_gene = 3)
 
-  cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = p1_p2_p3_p4_so)
-  save(p1_p2_p3_p4_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
+  p1_p2_p3_p4_so <- run_seurat_pipeline(p1_p2_p3_p4_so)
+  save(p1_p2_p3_p4_so, file = out_seurat)
+
+  top_expressed_genes_tb <- find_top_cluster_expressed_genes(
+    seurat_obj = p1_p2_p3_p4_so)
+  save(p1_p2_p3_p4_so, top_expressed_genes_tb, file = out_seurat)
+  p1_p2_p3_p4_so <- subset(p1_p2_p3_p4_so, downsample = 250)
+  save(p1_p2_p3_p4_so, top_expressed_genes_tb, file = out_seurat_test)
+
+  # load(paste0(
+  #   "/u/flashscratch/d/dpolioud/seurat/20190427"
+  #   , "/p1_p2_p3_p4_filtered_rmp27.rdat"))
+  #
+  # cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = p1_p2_p3_p4_so)
+  # save(p1_p2_p3_p4_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
 
 }
 ################################################################################
@@ -89,7 +96,7 @@ main_function <- function(){
 make_seurat_object <- function(
   downsample_data = FALSE, ds_n_genes = 6000, ds_n_cells = 3000){
 
-  print("make_loomr_object")
+  print("make_seurat_object")
 
   # input 10X data and create seurat object
   # down-sample cells and genes for testing
@@ -261,6 +268,9 @@ run_seurat_pipeline <- function(seurat_obj){
     seurat_obj, dims.use = 1:100, do.fast = TRUE, nthreads = 8
     , tsne.method = "Rtsne", reduction = "pca", max_iter = 2000)
 
+  print("RunUMAP")
+  seurat_obj <- RunUMAP(seurat_obj, dims = 1:100)
+
   print("FindNeighbors")
   seurat_obj <- FindNeighbors(object = seurat_obj
     , reduction = "pca", dims = 1:100, nn.eps = 0, k.param = 30)
@@ -360,8 +370,8 @@ filter_expression_matrix_for_de <- function(
 # 5            VZ   8.7  0.45139297  0.856908177
 # 6            VZ   9.1  0.27861748 -0.248868277
 # mod: "y~ExpCondition+RIN.y+Seq.PC1+Seq.PC2"
-run_de_with_lm_with_linear_model <- function(expr_m, terms_df, mod) {
-  print("run_de_with_lm_with_linear_model")
+run_de_with_linear_model <- function(expr_m, terms_df, mod) {
+  print("run_de_with_linear_model")
   lmmod <- apply(expr_m, 1
     , function(y) {
       mod <- as.formula(mod)
@@ -434,7 +444,7 @@ run_de_with_lm <- function(cluster_id, seurat_obj){
   terms_df$cluster <- rep(FALSE, nrow(seurat_obj[[]]))
   terms_df$cluster[Idents(seurat_obj) == cluster_id] <- TRUE
   mod <- "y ~ cluster"
-  lm_coef_pval_l <- run_de_with_lm_with_linear_model(
+  lm_coef_pval_l <- run_de_with_linear_model(
     expr_m = expr_m, terms_df = terms_df, mod = mod)
 
   # Format LM output into data frame
