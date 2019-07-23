@@ -5,6 +5,7 @@
 # Must load modules:
 #  module load gcc/4.9.3
 #  module load R/3.3+
+#  module load python/3.7.2
 ################################################################################
 
 rm(list = ls())
@@ -19,6 +20,9 @@ require(cowplot)
 require(viridis)
 require(cellrangerRkit)
 require(tidyverse)
+library(reticulate)
+reticulate::use_python("/u/local/apps/python/3.7.2/bin/python3", required=TRUE)
+reticulate::py_config()   # check to make sure it is configured
 source("function_library.R")
 source("ggplot_theme.R")
 # require(xlsx)
@@ -37,14 +41,17 @@ date <- format(Sys.Date(), "%Y%m%d")
 ## Outputs
 out_seurat <- paste0(
   "/u/flashscratch/d/dpolioud/seurat_subcluster/", date
-  , "/cca_lib_110/seurat_subcluster_astro.rdat")
+  , "/seuratv3_integration/seurat_subcluster_astro.rdat")
+out_seurat_test <- gsub(".rdat", "_test.rdat", out_seurat)
 out_table <- paste0(
   "../analysis/seurat_subcluster/", date
-  , "/tables/cca_lib_110/seurat_subcluster_astro_")
+  , "/tables/seuratv3_integration/seurat_subcluster_astro_")
+print(out_seurat)
+print(out_table)
 
 # Make directories
 dir.create(dirname(out_seurat), recursive = TRUE)
-dir.create(dirname(out_table), recursive = TRUE)
+# dir.create(dirname(out_table), recursive = TRUE)
 ################################################################################
 
 ### Main function
@@ -58,17 +65,30 @@ main_function <- function(){
     # , subset = clinical_dx == "Control")
   rm(p1_p2_p3_p4_so)
 
-  subset_so <- run_cca_seurat_pipeline(subset_so)
+  # subset_so <- readRDS(in_seurat)
+  subset_so <- run_seurat_cca_pipeline(subset_so, dims_use = 1:10)
   save(subset_so, file = out_seurat)
 
+  # stash clustering of full dataset for later
+  # subset_so$cluster_pc1to100_res06 <- subset_so[["RNA_snn_res.0.6"]]
+  # subset_so <- run_seurat_integration_pipeline(subset_so, dims_use = 1:30)
+  # Idents(subset_so) <- subset_so[["integrated_snn_res.0.4"]]
+  # save(subset_so, file = out_seurat)
+  # subset_so <- subset(subset_so, downsample = 500)
+  # save(subset_so, top_expressed_genes_tb, file = out_seurat_test)
+
+  # stash clustering of full dataset for later
+  # subset_so$cluster_pc1to100_res06 <- subset_so[["RNA_snn_res.0.6"]]
   # subset_so <- run_seurat_pipeline(subset_so)
   # save(subset_so, file = out_seurat)
-  #
-  # # set cluster identities to desired clustering
-  # Idents(subset_so) <- subset_so[["RNA_snn_res.0.6"]]
-  #
-  # top_expressed_genes_tb <- find_top_cluster_expressed_genes(subset_so)
-  # save(subset_so, top_expressed_genes_tb, file = out_seurat)
+
+  # set cluster identities to desired clustering
+  Idents(subset_so) <- subset_so[["RNA_snn_res.0.4"]]
+  top_expressed_genes_tb <- find_top_cluster_expressed_genes(subset_so)
+  save(subset_so, top_expressed_genes_tb, file = out_seurat)
+  subset_so <- subset(subset_so, downsample = 500)
+  save(subset_so, top_expressed_genes_tb, file = out_seurat_test)
+
   #
   # cluster_enriched_de_tb <- find_cluster_enriched_genes(subset_so)
   # save(subset_so, top_expressed_genes_tb, cluster_enriched_de_tb
@@ -84,12 +104,15 @@ run_seurat_pipeline <- function(seurat_obj){
 
   print("run_seurat_pipeline")
 
-  print("NormalizeData")
-  seurat_obj <- NormalizeData(object = seurat_obj, display.progress = TRUE)
+  # print("NormalizeData")
+  # seurat_obj <- NormalizeData(object = seurat_obj, display.progress = TRUE)
 
   print("FindVariableGenes")
   seurat_obj <- FindVariableFeatures(
-    seurat_obj, selection.method = "mean.var.plot", display.progress = TRUE)
+    # seurat_obj, selection.method = "mean.var.plot", display.progress = TRUE)
+    seurat_obj, selection.method = "vst", display.progress = TRUE)
+  print(
+    paste0("Number of variable genes: ", length(VariableFeatures(seurat_obj))))
 
   print("ScaleData")
   seurat_obj <- ScaleData(seurat_obj
@@ -105,12 +128,14 @@ run_seurat_pipeline <- function(seurat_obj){
 
   print("RunTSNE")
   seurat_obj <- RunTSNE(
-    seurat_obj, dims.use = 1:100, do.fast = TRUE, nthreads = 8
+    seurat_obj, dims.use = 1:25, do.fast = TRUE, nthreads = 8
     , tsne.method = "Rtsne", reduction = "pca", max_iter = 2000)
+  print("RunUMAP")
+  seurat_obj <- RunUMAP(seurat_obj, dims = 1:25)
 
   print("FindNeighbors")
   seurat_obj <- FindNeighbors(object = seurat_obj
-    , reduction = "pca", dims = 1:100, nn.eps = 0, k.param = 30)
+    , reduction = "pca", dims = 1:25, nn.eps = 0, k.param = 30)
 
   print("FindClusters")
   for(i in c(0.4,0.5,0.6,0.7,0.8)){
@@ -135,7 +160,7 @@ find_top_cluster_expressed_genes <- function(seurat_obj){
     map(clusters, function(cluster){
       GetAssayData(seurat_obj, slot = "data")[
         , Idents(seurat_obj) == cluster] %>%
-      rowMeans() %>%
+      Matrix::rowMeans() %>%
       sort(decreasing = TRUE) %>%
       enframe() %>%
       as_tibble() %>%
@@ -360,7 +385,7 @@ find_cluster_enriched_genes <- function(seurat_obj){
 
 ### CCA
 
-run_cca_seurat_pipeline <- function(seurat_obj){
+run_seurat_cca_pipeline <- function(seurat_obj, dims_use = 1:10){
 
   print("run_cca")
 
@@ -405,16 +430,18 @@ run_cca_seurat_pipeline <- function(seurat_obj){
 
   })
 
-  # Determine genes to use for CCA, must be highly variable in at least 2 datasets
+  # Determine genes to use for CCA, must be highly variable in at least 5 datasets
   ob.list <- seurat_obj_l
   genes.use <- c()
   for (i in 1:length(ob.list)) {
-    genes.use <- c(genes.use, head(rownames(ob.list[[i]]@hvg.info), 1000))
+    genes.use <- c(genes.use, head(rownames(ob.list[[i]]@hvg.info), 2000))
   }
-  genes.use <- names(which(table(genes.use) > 1))
+  genes.use <- names(which(table(genes.use) > 4))
   for (i in 1:length(ob.list)) {
     genes.use <- genes.use[genes.use %in% rownames(ob.list[[i]]@scale.data)]
   }
+  # 3369
+  length(genes.use)
 
   # Run multi-set CCA
   seurat_obj <- RunMultiCCA(ob.list, genes.use = genes.use, num.ccs = 25)
@@ -427,7 +454,7 @@ run_cca_seurat_pipeline <- function(seurat_obj){
   seurat_obj <- CalcVarExpRatio(object = seurat_obj
     , reduction.type = "pca"
     , grouping.var = "library_id"
-    , dims.use = 1:10)
+    , dims.use = dims_use)
 
   # seurat_obj <- SubsetData(
   #   seurat_obj
@@ -435,25 +462,33 @@ run_cca_seurat_pipeline <- function(seurat_obj){
   #   , accept.low = 0.5)
 
   # Alignment
+  print("AlignSubspace")
   seurat_obj <- AlignSubspace(
     seurat_obj
     , reduction.type = "cca"
     , grouping.var = "library_id"
-    , dims.align = 1:10)
+    , dims.align = dims_use)
 
+  print("FindClusters")
   # t-SNE and Clustering
   seurat_obj <- FindClusters(
     seurat_obj
     , reduction.type = "cca.aligned"
-    , dims.use = 1:10
+    , dims.use = dims_use
     , save.SNN = T
     , resolution = 0.6)
 
+  print("RunTSNE")
   seurat_obj <- RunTSNE(
     seurat_obj
     , reduction.use = "cca.aligned"
-    , dims.use = 1:10
-    , resolution = 0.6)
+    , dims.use = dims_use)
+
+  print("RunUMAP")
+  seurat_obj <- RunUMAP(
+    seurat_obj
+    , dims = dims_use
+    , reduction = "cca.aligned")
 
   return(seurat_obj)
   # Visualization
@@ -531,6 +566,67 @@ run_cca_seurat_pipeline <- function(seurat_obj){
   # # Visualization
   # TSNEPlot(pancreas.integrated, do.label = T)
 
+}
+################################################################################
+
+### Run Seurat integration pipeline
+
+run_seurat_integration_pipeline <- function(seurat_obj, dims_use = 1:10){
+
+  print("run_seurat_integration_pipeline")
+
+  seurat_obj_l <- SplitObject(seurat_obj, split.by = "prep")
+  seurat_obj_l <- SplitObject(seurat_obj, split.by = "library_id")
+
+  # Prior to finding anchors, we perform standard preprocessing (log-normalization), and identify variable features individually for each. Note that Seurat v3 implements an improved method for variable feature selection based on a variance stabilizing transformation ("vst")
+
+  print("Normalize each batch individually")
+  for (i in 1:length(seurat_obj_l)) {
+      seurat_obj_l[[i]] <- NormalizeData(seurat_obj_l[[i]], verbose = FALSE)
+      seurat_obj_l[[i]] <- FindVariableFeatures(
+        seurat_obj_l[[i]], selection.method = "vst"
+        , nfeatures = 2000, verbose = FALSE)
+  }
+
+  #lapply(seurat_obj_l, function(seurat_obj){GetAssayData(seurat_obj, slot = "data") %>% dim})
+
+  print("Find integration anchors")
+  anchors <- FindIntegrationAnchors(
+    object.list = seurat_obj_l, dims = 1:30, k.filter = 50)
+
+  integrated_seurat_obj <- IntegrateData(anchorset = anchors, dims = 1:30)
+
+  DefaultAssay(integrated_seurat_obj) <- "integrated"
+
+  print("Scale data")
+  integrated_seurat_obj <- ScaleData(
+    integrated_seurat_obj, verbose = FALSE
+    , features = rownames(integrated_seurat_obj))
+
+  print("Run PCA")
+  integrated_seurat_obj <- RunPCA(
+    integrated_seurat_obj, npcs = 30, verbose = FALSE)
+
+  print("RunTSNE")
+  integrated_seurat_obj <- RunTSNE(
+    integrated_seurat_obj, dims.use = 1:30, do.fast = TRUE, nthreads = 8
+    , tsne.method = "Rtsne", reduction = "pca", max_iter = 2000)
+
+  print("RunUMAP")
+  integrated_seurat_obj <- RunUMAP(integrated_seurat_obj, dims = 1:30)
+
+  print("FindNeighbors")
+  integrated_seurat_obj <- FindNeighbors(object = integrated_seurat_obj
+    , reduction = "pca", dims = 1:30, nn.eps = 0, k.param = 30)
+
+  print("FindClusters")
+  for(i in c(0.4,0.5,0.6,0.7,0.8)){
+    print(paste0("clustering for resolution: ", i))
+    integrated_seurat_obj <- FindClusters(
+      object = integrated_seurat_obj, resolution = i, n.start = 100)
+  }
+
+  return(integrated_seurat_obj)
 }
 ################################################################################
 

@@ -50,7 +50,7 @@ out_seurat <- paste0(
 out_seurat_test <- gsub(".rdat", "_test.rdat", out_seurat)
 out_seurat_raw <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/cellranger_v3/p1_p2_p3_p4_raw_test.rdat")
+  , "/cellranger_v3/p1_p2_p3_p4_raw.rdat")
 
 # Make directories
 # dir.create(dirname(out_graph), recursive = TRUE)
