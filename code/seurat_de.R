@@ -36,7 +36,7 @@ path_seurat <- args[2]
 path_tmp <- args[5]
 
 ## Variables
-script_name <- "seurat_de_1.R"
+script_name <- "seurat_de.R"
 date <- format(Sys.Date(), "%Y%m%d")
 
 seurat_obj <- as.character(args[3])
@@ -76,6 +76,8 @@ main_compile_function <- function(){
 
   cluster_enriched_tb <- map(
     list.files(dirname(path_tmp), full.names = TRUE), read.csv) %>% bind_rows()
+
+  dir.create(dirname(out_table), recursive = TRUE)
 
   write.csv(cluster_enriched_tb, file = out_table, row.names = FALSE, quote = FALSE)
 
@@ -159,9 +161,12 @@ filter_expression_matrix_for_de <- function(
   # randomly subset cells not in cluster of interest to equal number in cluster of interest
   col_idxs <- c(0:ncol(expr_m))
   cell_keep_idx_cluster <- col_idxs[cell_cluster_key == cluster_id]
+  # cell_keep_idx_noncluster <- sample(
+  #   col_idxs[cell_cluster_key != cluster_id]
+  #   , sum(cell_cluster_key == cluster_id))
   cell_keep_idx_noncluster <- sample(
     col_idxs[cell_cluster_key != cluster_id]
-    , sum(cell_cluster_key == cluster_id))
+    , 10000)
   cell_keep_idx <- c(cell_keep_idx_cluster, cell_keep_idx_noncluster)
 
   # Filter expr_m
@@ -248,21 +253,23 @@ run_de_with_lm <- function(cluster_id, seurat_obj, cluster_col_name){
 
   # DE Linear model
   terms_df <- data.frame(seurat_obj[[c(cluster_col_name), drop = FALSE]])
-  terms_df <- terms_df[row.names(terms_df) %in% colnames(expr_m), , drop = FALSE]
-
   # Add term TRUE/FALSE cell is in cluster
   terms_df$cluster <- rep(FALSE, nrow(seurat_obj[[]]))
   terms_df$cluster[Idents(seurat_obj) == cluster_id] <- TRUE
+  terms_df <- terms_df[row.names(terms_df) %in% colnames(expr_m), , drop = FALSE]
   mod <- "y ~ cluster"
   lm_coef_pval_l <- run_de_with_linear_model(
     expr_m = expr_m, terms_df = terms_df, mod = mod)
 
   # Format LM output into data frame
+  cell_cluster_key <- Idents(seurat_obj)[
+    names(Idents(seurat_obj)) %in% colnames(expr_m)]
   cluster_enriched_de_df <- format_lm_de(
     lm_coef_pval_l = lm_coef_pval_l
     , expr_m = expr_m
     , cluster_id = cluster_id
-    , cell_cluster_key = Idents(seurat_obj))
+    , cell_cluster_key = cell_cluster_key
+  )
 
   # Add ensembl
   cluster_enriched_de_df$ensembl <- convert_gene_symbols_to_ensembl_ids(
