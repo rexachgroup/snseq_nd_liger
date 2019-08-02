@@ -19,8 +19,8 @@ require(irlba)
 require(cowplot)
 require(viridis)
 require(tidyverse)
-require(cellrangerRkit)
-require(loomR)
+# require(cellrangerRkit)
+# require(loomR)
 library(reticulate)
 reticulate::use_python("/u/local/apps/python/3.7.2/bin/python3", required=TRUE)
 reticulate::py_config()   # check to make sure it is configured
@@ -512,7 +512,7 @@ find_top_cluster_expressed_genes <- function(seurat_obj){
       sort(decreasing = TRUE) %>%
       enframe() %>%
       as_tibble() %>%
-      rename(c("name" = "gene", "value" = "mean_expression")) %>%
+      rename(gene = name, mean_expression = value) %>%
       mutate(cluster = cluster)
     }) %>%
     bind_rows()
