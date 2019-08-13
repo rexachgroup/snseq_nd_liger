@@ -75,7 +75,10 @@ main_function <- function(){
   plot_pca(seurat_obj = p1_p2_so)
   plot_correlation_matrix_of_pcs_and_metadata(seurat_obj = p1_p2_so)
   # plot_tsne_clustering_pcs_test()
-  # plot_tsne_clustering_resolution_test(seurat_obj = p1_p2_so)
+  plot_dim_reduction_clustering_resolution_test(
+    seurat_obj = p1_p2_so, reduction = "tsne")
+  plot_dim_reduction_clustering_resolution_test(
+    seurat_obj = p1_p2_so, reduction = "umap")
   plot_dim_reduction_colored_by_metadata(
     seurat_obj = p1_p2_so, reduction = "tsne")
   plot_dim_reduction_colored_by_metadata(
@@ -116,7 +119,10 @@ main_function_subclustered_astrocytes <- function(){
   # plot_pca(seurat_obj = subset_so)
   # plot_correlation_matrix_of_pcs_and_metadata(seurat_obj = subset_so)
   # plot_tsne_clustering_pcs_test()
-  # plot_tsne_clustering_resolution_test(seurat_obj = subset_so)
+  plot_dim_reduction_clustering_resolution_test(
+    seurat_obj = subset_so, reduction = "tsne")
+  plot_dim_reduction_clustering_resolution_test(
+    seurat_obj = subset_so, reduction = "umap")
   plot_dim_reduction_colored_by_metadata(
     seurat_obj = subset_so, reduction = "tsne")
   plot_dim_reduction_colored_by_metadata(
@@ -460,7 +466,7 @@ plot_correlation_matrix_of_pcs_and_metadata <- function(seurat_obj){
 
   # make tibble of metadata and pc scores
   metadata_to_plot <- c(
-    "cell_ids", "age", "clinical_dx"
+    "cell_ids", "age", "clinical_dx", "prep"
     , "library_id", "pmi_h", "rin_after_staining_and_lcm"
     , "sample_number", "sex", "weight_g", "number_umi", "number_genes")
     # , "mean_gc_content", "mean_cds_length")
@@ -563,28 +569,29 @@ plot_tsne_clustering_pcs_test <- function(){
 }
 ################################################################################
 
-### Plot tSNE colored by clustering with different Seurat resolutions
+### Plot dim reduction colored by clustering with different Seurat resolutions
 
-plot_tsne_clustering_resolution_test <- function(seurat_obj){
+plot_dim_reduction_clustering_resolution_test <- function(
+  seurat_obj, reduction = "tsne"){
 
-  print("plot_tsne_clustering_resolution_test")
+  print("plot_dim_reduction_clustering_resolution_test")
 
   cluster_col_names <- c("RNA_snn_res.0.4", "RNA_snn_res.0.5"
     , "RNA_snn_res.0.6" , "RNA_snn_res.0.7", "RNA_snn_res.0.8")
 
   gg_l <- map(cluster_col_names, function(variable){
     gg_tb <-
-      Embeddings(object = seurat_obj, reduction = "tsne") %>%
+      Embeddings(object = seurat_obj, reduction = reduction) %>%
       as.data.frame() %>%
       rownames_to_column("cell_ids") %>%
       as_tibble %>%
-      rename(tsne1 = tSNE_1, tsne2 = tSNE_2) %>%
+      rename(dim_1 = 2, dim_2 = 3) %>%
       inner_join(.
         , seurat_obj[[variable]] %>% rownames_to_column("cell_ids"))
     # gg_tb <- gg_l[[3]]
     plot_dim_reduction_colored_by_variable(
-      dim_1 = gg_tb$tsne1
-      , dim_2 = gg_tb$tsne2
+      dim_1 = gg_tb$dim_1
+      , dim_2 = gg_tb$dim_2
       , variable_value = gg_tb[[variable]]
       , title = variable
       , legend_title = variable
@@ -600,16 +607,18 @@ plot_tsne_clustering_resolution_test <- function(seurat_obj){
     gg_l[[name]] +
       # geom_point(size = 0.75, alpha = 0.25) +
       ggtitle(make_plot_title(paste0(
-        "Cells colored by ", name)))
-    ggsave(paste0(out_graph, "resolution_test_tsne/", name, ".png")
+        "Cells colored by ", name
+        , "\nDimensionality reduction: ", reduction)))
+    ggsave(paste0(out_graph, "resolution_test_", reduction, "/", name, ".png")
       , width = 9, dpi = 400)
   })
   plot_grid_wrapper(plotlist = gg_l, ncol = 4, rel_height = 0.1
     , align = 'v', axis = 'r'
     , title = make_plot_title(
-      "Cells colored by cluster")
+      paste0("Cells colored by cluster"
+      , "\nDimensionality reduction: ", reduction))
     )
-  ggsave(paste0(out_graph, "resolution_test_tsne.png")
+  ggsave(paste0(out_graph, "resolution_test_", reduction, ".png")
     , width = 28, height = 12, dpi = 200)
 
 }
