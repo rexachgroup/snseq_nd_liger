@@ -81,10 +81,7 @@ main_compile_function <- function(){
 
   write.csv(cluster_enriched_tb, file = out_table, row.names = FALSE, quote = FALSE)
 
-  seurat_obj <- get(seurat_obj)
-
-  save(seurat_obj
-    , top_expressed_genes_tb, cluster_enriched_tb
+  save(top_expressed_genes_tb, cluster_enriched_tb, list = seurat_obj
     , file = path_seurat)
 }
 ################################################################################
