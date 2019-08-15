@@ -9,13 +9,14 @@
 #$ -cwd
 #$ -S /bin/bash
 #$ -V
-#$ -N cca125
-#$ -o logs/qsub_r_script_cca125_$JOB_ID_$TASK_ID.log
-#$ -e logs/qsub_r_script_cca125_$JOB_ID_$TASK_ID.error
+#$ -N Rscript
+#$ -o logs/qsub_r_script_seurat_plots_ad_ctrl_$JOB_NAME_$JOB_ID_$TASK_ID.log
+#$ -e logs/qsub_r_script_seurat_plots_ad_ctrl_$JOB_NAME_$JOB_ID_$TASK_ID.error
 #$ -l h_data=128G,h_rt=12:00:00
 # #$ -pe shared 8
 #$ -t 1
 # #$ -m bea
+# #$ -hold_jid
 
 # reminder: make /logs directory in code directory
 ################################################################################
@@ -33,8 +34,8 @@ usage () {
       echo "${message}"
   fi
   echo "usage: $0"
-  echo "  [-p path to R script (script to run)]"
-  echo "  [-r path to Rscript]"
+  echo "  [-p path to the R script (script to run)]"
+  echo "  [-r path to Rscript (for using different versions of R)]"
 }
 ################################################################################
 
@@ -43,7 +44,7 @@ usage () {
 ## variables
 
 # path to Rscript
-rscript_path=/u/local/apps/R/3.4.0/gcc-4.9.3_MKL-2017.0/lib64/R/bin/Rscript
+rscript_path=/u/local/apps/R/3.6.0/gcc-4.9.3_MKL-2018/bin/Rscript
 # arguments
 # required
 # path to script to run
@@ -78,7 +79,7 @@ if  [ -z "${in_r_script}" ]
 fi
 
 echo "Arguments:"
-echo "Path to R script to run: ${in_r_script}"
+echo "Path to the R script to run: ${in_r_script}"
 echo "Optional arguments:"
 echo "Path to Rscript: ${rscript_path}"
 

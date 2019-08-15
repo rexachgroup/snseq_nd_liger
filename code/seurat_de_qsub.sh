@@ -12,9 +12,9 @@
 #$ -N srtde
 #$ -o logs/seurat_de_qsub_$JOB_NAME_$JOB_ID_$TASK_ID.log
 #$ -e logs/seurat_de_qsub_$JOB_NAME_$JOB_ID_$TASK_ID.error
-#$ -l h_data=8G,h_rt=12:00:00
+#$ -l h_data=128G,h_rt=12:00:00
 # #$ -pe shared 8
-#$ -t 1-28
+#$ -t 1-27
 #$ -tc 4
 # #$ -m bea
 # #$ -hold_jid
@@ -62,7 +62,7 @@ cluster_col_name=
 # directory for temporary output
 path_tmp=/u/flashscratch/d/dpolioud/tmp/seurat/$(date +%Y%m%d)/cluster_${SGE_TASK_ID}.csv
 # path to Rscript
-rscript_path=/u/local/apps/R/3.4.0/gcc-4.9.3_MKL-2017.0/lib64/R/bin/Rscript
+rscript_path=/u/local/apps/R/3.6.0/gcc-4.9.3_MKL-2018/bin/Rscript
 
 ## handle arguments
 

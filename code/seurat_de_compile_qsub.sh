@@ -46,7 +46,7 @@ cluster_col_name=
 # directory for temporary output
 path_tmp=/u/flashscratch/d/dpolioud/tmp/seurat/$(date +%Y%m%d)/cluster_${SGE_TASK_ID}.csv
 # path to Rscript
-rscript_path=/u/local/apps/R/3.4.0/gcc-4.9.3_MKL-2017.0/lib64/R/bin/Rscript
+rscript_path=/u/local/apps/R/3.6.0/gcc-4.9.3_MKL-2018/bin/Rscript
 
 ## handle arguments
 
