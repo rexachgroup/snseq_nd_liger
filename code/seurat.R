@@ -4,7 +4,7 @@
 
 # Must load modules:
 #  module load gcc/4.9.3
-#  module load R/3.3+
+#  module load R/3.6.0
 #  module load python/3.7.2
 ################################################################################
 
@@ -109,38 +109,102 @@ make_seurat_object <- function(
             # include MT genes
             , grep(pattern = "^MT-", x = rownames(.))))
           , sample(1:ncol(.), ds_n_cells)] %>%
-        CreateSeuratObject(counts = ., project = "p1_p2_p3_p4")
+        CreateSeuratObject(counts = ., project = "p1-5_c1-5")
   # run full dataset
   } else {
-    seurat_obj <-
-      Read10X(data.dir = in_10x)[,] %>%
-        CreateSeuratObject(counts = ., project = "p1_p2_p3_p4")
+    expr_M <- Read10X(data.dir = in_10x)
+    print(str(expr_M))
+    seurat_obj <- CreateSeuratObject(counts = expr_M, project = "p1-5_c1-5")
+    rm(expr_M)
   }
 
   ## Add metadata
 
-  format_metadata <- function(metadata_tb){
+  format_metadata <- function(metadata_tb, vars_to_rename = NULL){
     metadata_tb <- metadata_tb %>%
-        mutate("Sample #" = as.character(.$"Sample #")) %>%
-        mutate(Prep = as.character(Prep)) %>%
-        clean_variable_names()
+      {if(! is.null(vars_to_rename)){rename(., !!vars_to_rename)} else .} %>%
+      mutate("Sample #" = as.character(.$"Sample #")) %>%
+      mutate(Prep = as.character(Prep)) %>%
+      clean_variable_names()
     return(metadata_tb)
   }
 
-  format_metadata_p1_p2_p3_p4 <- function(){
-    print("format_metadata_p1_p2_p3_p4")
+  format_metadata_p1to5_c1to5 <- function(){
+    print("format_metadata_p1to5_c1to5")
+    # combine metadata from Jessica
     metadata_tb <- format_metadata(p1_mt_df) %>%
       bind_rows(., format_metadata(p2_mt_df)) %>%
       bind_rows(., format_metadata(p3_mt_df)) %>%
       bind_rows(., format_metadata(p4_mt_df)) %>%
-      # add column of cell ranger ids that are appended to cell_names
-      # seem to be in the order as samples in the cell ranger aggregate args file
-      mutate(cell_ranger_id = c(1:nrow(.)))
-    sample_id <- seurat_obj@assays$RNA@counts %>% colnames %>% gsub(".*-", "", .)
-    idx <- match(sample_id, metadata_tb$cell_ranger_id)
+      rename(., rin = "rin_after_staining_and_lcm")
+    metadata_tb$region <- gsub("PreCG", "preCG", metadata_tb$region)
+
+    tmp <- format_metadata(p5_c1to5_mt_df
+        , vars_to_rename = c("Sample #" = "Sample.."
+          , LIBRARY_ID = "Sample or Library Name"
+          , Prep = "libraryBatch"
+          # , Targeted_cellcount = "cell_counts"
+          , targeted_cellcount = "targetcellcount(loaded)"
+          , weight_g = "weight"
+          ))
+    tmp$targeted_cellcount <- gsub(",", "", tmp$targeted_cellcount) %>% as.numeric
+    tmp$region <- gsub("PCG", "preCG", tmp$region)
+
+    # clean columns
+    metadata_tb <- bind_rows(metadata_tb, tmp) %>%
+      select(-c(x14, x1, x19, x15, library_id_1, weightdissected, npdx1
+        , cell_counts))
+
+    # add cell ranger alignment metrics
+    metadata_tb <- left_join(metadata_tb
+      , cr_metrics_summary %>%
+        # fix library ids
+        # The core numbered P3 1 through 7 which matches in sequence to our 2 through 8
+        mutate(ID = str_replace_all(ID, c(
+          "P2_7B" = "P2_7_1B"
+          , "C3_3_PC1_6" = "C3_3"
+          , "P3_7" = "P3_8"
+          , "P3_6" = "P3_7"
+          , "P3_5" = "P3_6"
+          , "P3_4" = "P3_5"
+          , "P3_3" = "P3_4"
+          , "P3_2" = "P3_3"
+          , "P3_1" = "P3_2"))) %>%
+        rename(library_id = "ID")
+      , by = "library_id")
+
+    # cell ranger adds numerical id tags to aggregated samples based on the order the samples were supplied in the aggregate csv
+    # use the cell ranger numerical id tags and aggregate csv to match with metadata
+    # first match numerical ids to aggregate csv and cleanup names in aggregate csv
+    sample_id <- seurat_obj@assays$RNA@counts %>%
+      colnames %>%
+      gsub(".*-", "", .)
+    cell_ranger_id_lib_id_key_tb <- left_join(
+      sample_id %>% enframe()
+      , cell_ranger_id_key_tb %>% mutate(value = rownames(cell_ranger_id_key_tb))
+      ) %>%
+        # fix library ids
+        # The core numbered P3 1 through 7 which matches in sequence to our 2 through 8
+        mutate(library_id = str_replace_all(library_id, c(
+          "P2_7B" = "P2_7_1B"
+          , "C3_3_PC1_6" = "C3_3"
+          , "P3_7" = "P3_8"
+          , "P3_6" = "P3_7"
+          , "P3_5" = "P3_6"
+          , "P3_4" = "P3_5"
+          , "P3_3" = "P3_4"
+          , "P3_2" = "P3_3"
+          , "P3_1" = "P3_2"
+      )))
+
+    cell_ranger_id_lib_id_key_tb$library_id %>% unique
+    # now match with metadata
+    idx <- match(
+      cell_ranger_id_lib_id_key_tb$library_id
+      , metadata_tb$library_id)
     metadata_tb <- metadata_tb[idx, ]
     metadata_df <- metadata_tb %>% as.data.frame()
-    rownames(metadata_df) <- rownames(seurat_obj@meta.data)
+    metadata_df$cell_ids <- rownames(seurat_obj@meta.data)
 
     # Percent mito
     sum_mito <- grep(
@@ -156,6 +220,12 @@ make_seurat_object <- function(
 
     # Number UMI per cell
     metadata_df$number_umi <- seurat_obj@meta.data$nCount_RNA
+
+    # Cell counts per library id before filtering
+    raw_cell_counts_per_lib <- metadata_df$library_id %>% table %>% as_tibble %>% rename()
+    metadata_df <- left_join(metadata_df, raw_cell_counts_per_lib, by = c("library_id" = ".")) %>% rename(raw_cell_counts_per_lib = "n")
+
+    rownames(metadata_df) <- metadata_df$cell_ids
 
     # # mean CDS length
     # mean_cds_length <- raw_loom$map(
@@ -197,7 +267,7 @@ make_seurat_object <- function(
     metadata_df$number_cells_per_gene <- rowSums(seurat_obj@assays$RNA@counts > 0)
   }
 
-  metadata_df <- format_metadata_p1_p2_p3_p4()
+  metadata_df <- format_metadata_p1to5_c1to5()
   seurat_obj <- AddMetaData(object = seurat_obj, metadata = metadata_df)
 
   return(seurat_obj)
@@ -216,7 +286,7 @@ qc_filter_genes_and_cells <- function(
   print("qc_filter_genes_and_cells")
 
   cells_to_keep <- seurat_obj@meta.data %>%
-    rownames_to_column(var = "cell_ids") %>%
+    # rownames_to_column(var = "cell_ids") %>%
     as_tibble() %>%
     filter(
       number_genes > min_number_genes
@@ -236,6 +306,16 @@ qc_filter_genes_and_cells <- function(
 
   seurat_obj <- subset(
     x = seurat_obj, cells = cells_to_keep, features = genes_to_keep)
+
+  # Cell counts per library id after filtering
+  cell_counts_per_lib <- seurat_obj[["library_id"]][,1] %>%
+    table %>%
+    as_tibble %>%
+    rename(cell_counts_per_lib = "n")
+  seurat_obj[["cell_counts_per_lib"]] <- left_join(
+    seurat_obj[["library_id"]], cell_counts_per_lib
+      , by = c("library_id" = ".")) %>%
+    pull(cell_counts_per_lib)
 
   return(seurat_obj)
 }
