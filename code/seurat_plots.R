@@ -95,16 +95,20 @@ main_function <- function(){
     seurat_obj = p1_p2_so, reduction = "umap")
   # make_table_of_percent_of_cell_types()
   plot_marker_astrocyte_expression_dim_reduction(
-    seurat_obj = subset_so, reduction = "tsne")
+    seurat_obj = p1_p2_so, reduction = "tsne")
   plot_marker_astrocyte_expression_dim_reduction(
-    seurat_obj = subset_so, reduction = "umap")
-  # plot_genes_of_interest_expression_tsnes(seurat_obj = p1_p2_so)
+    seurat_obj = p1_p2_so, reduction = "umap")
+  plot_genes_of_interest_expression_dim_reduction(
+    seurat_obj = p1_p2_so, reduction = "tsne")
+  plot_genes_of_interest_expression_dim_reduction(
+    seurat_obj = p1_p2_so, reduction = "umap")
   # plot_cluster_enriched_genes_heatmap(
-    # seurat_obj = p1_p2_so, cluster_enriched_de_tb = cluster_enriched_de_tb)
+    # seurat_obj = p1_p2_so, cluster_enriched_de_tb = cluster_enriched_tb)
   plot_cluster_top_expressed_genes_heatmap(
-    seurat_obj = p1_p2_so, top_expressed_genes_tb = top_expressed_genes_tb)
+    seurat_obj = p1_p2_so, top_expressed_genes_tb = top_expressed_genes_tb,
+    cluster_col = "cluster_pc1to100_res06")
   # plot_cluster_enriched_genes_violin_plots(
-  #   seurat_obj = p1_p2_so, cluster_enriched_de_tb = cluster_enriched_de_tb)
+  #   seurat_obj = p1_p2_so, cluster_enriched_de_tb = cluster_enriched_tb)
 }
 
 main_function_subclustered_astrocytes <- function(){
@@ -157,11 +161,12 @@ main_function_subclustered_astrocytes <- function(){
     , reduction = "umap")
   # plot_genes_of_interest_expression_tsnes(seurat_obj = subset_so)
   # plot_cluster_enriched_genes_heatmap(
-    # seurat_obj = subset_so, cluster_enriched_de_tb = cluster_enriched_de_tb)
+    # seurat_obj = subset_so, cluster_enriched_de_tb = cluster_enriched_tb)
   plot_cluster_top_expressed_genes_heatmap(
-    seurat_obj = subset_so, top_expressed_genes_tb = top_expressed_genes_tb)
+    seurat_obj = subset_so, top_expressed_genes_tb = top_expressed_genes_tb,
+    cluster_col = "subclustering")
   # plot_cluster_enriched_genes_violin_plots(
-  #   seurat_obj = subset_so, cluster_enriched_de_tb = cluster_enriched_de_tb)
+  #   seurat_obj = subset_so, cluster_enriched_de_tb = cluster_enriched_tb)
 }
 ################################################################################
 
@@ -602,7 +607,7 @@ plot_dim_reduction_clustering_resolution_test <- function(
   })
   # set list names as metadata to use for file names
   names(gg_l) <- sapply(gg_l, function(gg){gg$labels$title})
-  dir.create(paste0(out_graph, "resolution_test_tsne"))
+  dir.create(paste0(out_graph, "resolution_test_", reduction))
   lapply(names(gg_l), function(name){
     gg_l[[name]] +
       # geom_point(size = 0.75, alpha = 0.25) +
@@ -1086,14 +1091,14 @@ plot_marker_astrocyte_expression_dim_reduction <- function(
 }
 ################################################################################
 
-### tSNE colored by expression of genes of interest
+### dimensionality reduction plot colored by expression of genes of interest
 
-plot_genes_of_interest_expression_tsnes <- function(
-  seurat_obj, cluster_col_name = "cluster_pc1to100_res06"){
+plot_genes_of_interest_expression_dim_reduction <- function(
+  seurat_obj, cluster_col_name = "cluster_pc1to100_res06", reduction = "tsne"){
 
-  print("plot_genes_of_interest_expression_tsnes")
+  print("plot_genes_of_interest_expression_dim_reduction")
 
-  genes <- c("NFKB1", "STAT3", "IFNAR1", "C3", "C4A", "C4B")
+  genes <- c("NFKB1", "STAT3", "IFNAR1", "C3", "C4A", "C4B", "SPI1")
 
   seurat_obj$cluster_ids <- seurat_obj[[cluster_col_name]]
 
@@ -1101,15 +1106,16 @@ plot_genes_of_interest_expression_tsnes <- function(
   plot_dim_reduction_colored_by_expression(
     genes = genes
     , seurat_obj = seurat_obj
-    , seurat_cluster_col = "cluster_ids"
     , expression_slot = "data"
+    , seurat_cluster_col = "cluster_ids"
     , expression_color_gradient = TRUE
+    , reduction = reduction
     , ncol = 4
     , limit_high = 2
     , limit_low = 0
     , title = make_plot_title("Mean normalized expression of genes of interest")
   )
-  ggsave(paste0(out_graph, "genes_of_interest_expression_tsne.png")
+  ggsave(paste0(out_graph, "genes_of_interest_expression_", reduction, ".png")
     , width = 18, height = 6.5, dpi = 200)
 
   # plot
@@ -1119,13 +1125,14 @@ plot_genes_of_interest_expression_tsnes <- function(
     , expression_slot = "scale.data"
     , seurat_cluster_col = "cluster_ids"
     , legend_title = "expression\nz-score"
+    , reduction = reduction
     , zscore = TRUE
     , ncol = 4
     , limit_high = 1
     , limit_low = -1
     , title = make_plot_title("Mean normalized expression of genes of interest")
   )
-  ggsave(paste0(out_graph, "genes_of_interest_expression_zscore_tsne.png")
+  ggsave(paste0(out_graph, "genes_of_interest_expression_zscore_", reduction, ".png")
     , width = 18, height = 6.5, dpi = 200)
 
 }
@@ -1182,7 +1189,7 @@ plot_cluster_enriched_genes_heatmap <- function(
 ### top cluster expressed genes expression heatmap
 
 plot_cluster_top_expressed_genes_heatmap <- function(
-  seurat_obj, top_expressed_genes_tb){
+  seurat_obj, top_expressed_genes_tb, cluster_col){
 
   print("plot_cluster_enriched_genes_heatmap")
 
@@ -1195,7 +1202,7 @@ plot_cluster_top_expressed_genes_heatmap <- function(
     , expression_slot = "data"
     , genes_to_plot = gene_group_tb$gene
     , genes_groupings = gene_group_tb$cluster
-    , cluster_col = "cluster_pc1to100_res06"
+    , cluster_col = cluster_col
     , plot_title = make_plot_title("Top expressed genes for each cluster")
     , limit_high = 4
   )
@@ -1208,7 +1215,7 @@ plot_cluster_top_expressed_genes_heatmap <- function(
     , expression_slot = "scale.data"
     , genes_to_plot = gene_group_tb$gene
     , genes_groupings = gene_group_tb$cluster
-    , cluster_col = "cluster_pc1to100_res06"
+    , cluster_col = cluster_col
     , plot_title = make_plot_title("Top expressed genes for each cluster")
     , limit_low = -1
     , limit_high = 1
