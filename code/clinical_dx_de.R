@@ -152,15 +152,16 @@ assign_cell_type_cluster <- function(
   seurat_obj$cluster_ids <- seurat_obj[[cluster_col_name]] %>% pull
 
   seurat_obj$cluster_cell_type <-
-  seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]] %>%
-    as_tibble() %>%
-    group_by(cluster_ids) %>%
-    count(cell_type) %>%
-    mutate(percent = n/sum(n)*100) %>%
-    slice(which.max(percent)) %>%
-    mutate(cluster_cell_type = ifelse(percent > 50, cell_type, "mixed")) %>%
-    right_join(., seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]]) %>%
-    pull(cluster_cell_type)
+    seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]] %>%
+      as_tibble() %>%
+      group_by(cluster_ids) %>%
+      count(cell_type) %>%
+      mutate(percent = n/sum(n)*100) %>%
+      slice(which.max(percent)) %>%
+      mutate(cluster_cell_type = ifelse(percent > 50, cell_type, "mixed")) %>%
+      right_join(., seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]],
+        by = "cluster_ids") %>%
+      pull(cluster_cell_type)
 
   return(seurat_obj)
 
@@ -377,7 +378,7 @@ plot_dim_reduction_colored_by_cluster_cell_type_assignment <- function(
 run_de_with_lm_by_clinical_dx_and_cell_type <- function(
   seurat_obj,
   clinical_dxs = c("PSP-S", "Control"),
-  cell_type_of_interest = "neuron1"){
+  cell_type_of_interest = "excitatory3"){
 
   print("run_de_with_lm_by_clinical_dx_and_cell_type")
 
@@ -395,7 +396,9 @@ run_de_with_lm_by_clinical_dx_and_cell_type <- function(
   expr_m <- GetAssayData(seurat_obj, slot = "data")
   terms_df <- data.frame(
     seurat_obj[[c("clinical_dx", "number_umi"), drop = FALSE]])
-  levels(terms_df$clinical_dx) <- clinical_dxs
+  terms_df$clinical_dx <- terms_df$clinical_dx %>%
+    factor %>%
+    relevel(., ref = "Control")
   mod <- "y ~ clinical_dx + number_umi"
   lm_coef_pval_l <- run_de_with_linear_model(
     expr_m = expr_m, terms_df = terms_df, mod = mod)
@@ -449,8 +452,6 @@ run_de_with_lm_by_clinical_dx_and_cell_type <- function(
     arrange(desc(log2_fold_change_dx_vs_ctrl)) %>%
     # convert factors to characters
     mutate_if(is.factor, as.character)
-
-  dx_de_tb %>% as.data.frame %>% head
 
   return(dx_de_tb)
 }
