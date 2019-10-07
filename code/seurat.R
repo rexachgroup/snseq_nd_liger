@@ -3,7 +3,6 @@
 # Run Seurat
 
 # Must load modules:
-#  module load gcc/4.9.3
 #  module load R/3.6.0
 #  module load python/3.7.2
 ################################################################################
@@ -19,8 +18,7 @@ require(irlba)
 require(cowplot)
 require(viridis)
 require(tidyverse)
-# require(cellrangerRkit)
-# require(loomR)
+require(future)
 library(reticulate)
 reticulate::use_python("/u/local/apps/python/3.7.2/bin/python3", required=TRUE)
 reticulate::py_config()   # check to make sure it is configured
@@ -31,10 +29,12 @@ source("ggplot_theme.R")
 ## Inputs
 in_10x <- "/u/project/geschwind/drewse/g_singlecell/cellranger/data/20190624/aggr_20190625/outs/filtered_feature_bc_matrix/"
 # metadata
+p5_c1to5_mt_df <- read_csv("../metadata/metaData_072319.csv")
 p1_mt_df <- read_csv("../metadata/PGC_group1_071018.csv")
 p2_mt_df <- read_csv("../metadata/PCG_round2.csv")
 p3_mt_df <- read_csv("../metadata/PCG_round3_110918.csv")
 p4_mt_df <- read_csv("../metadata/PCG_round4samples.csv")
+cr_metrics_summary <- read_csv("../analysis/cell_ranger/20190815_metrics_summary.csv")
 # biomart gene info
 bm_tb <- read_csv("../../RNAseq_singlecellfetal/source/BiomaRt_Compile_GeneInfo_GRCh38_Ensembl87.csv") %>% as_tibble %>% select(-X1)
 
@@ -43,14 +43,14 @@ script_name <- "seurat.R"
 date <- format(Sys.Date(), "%Y%m%d")
 
 ## Outputs
-out_graph <- paste0("../analysis/seurat/", date, "/graphs/p1_p2_p3_p4_seurat_")
+out_graph <- paste0("../analysis/seurat/", date, "/graphs/p1-5_c1-5_seurat_")
 out_seurat <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/cellranger_v3/p1_p2_p3_p4_filtered_rmp27.rdat")
+  , "/percent_mt_8/reg_mt/p1-5_c1-5_filtered_rmp27.rdat")
 out_seurat_test <- gsub(".rdat", "_test.rdat", out_seurat)
 out_seurat_raw <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/cellranger_v3/p1_p2_p3_p4_raw.rdat")
+  , "/percent_mt_8/reg_mt/p1-5_c1-5_raw.rdat")
 
 # Make directories
 # dir.create(dirname(out_graph), recursive = TRUE)
@@ -61,32 +61,32 @@ dir.create(dirname(out_seurat), recursive = TRUE)
 
 main_function <- function(){
 
-  p1_p2_p3_p4_raw_so <- make_seurat_object(
+  nd_raw_so <- make_seurat_object(
     downsample_data = FALSE, ds_n_genes = 6000, ds_n_cells = 3000)
-  save(p1_p2_p3_p4_raw_so, file = out_seurat_raw)
+  save(nd_raw_so, file = out_seurat_raw)
 
-  p1_p2_p3_p4_so <- qc_filter_genes_and_cells(
-      seurat_obj = p1_p2_p3_p4_raw_so
+  nd_so <- qc_filter_genes_and_cells(
+      seurat_obj = nd_raw_so
       , libraries_to_remove = "P2_7"
       , min_number_genes = 200
       , max_percent_mito = 5
       , min_cells_per_gene = 3)
 
-  p1_p2_p3_p4_so <- run_seurat_pipeline(p1_p2_p3_p4_so)
-  save(p1_p2_p3_p4_so, file = out_seurat)
+  nd_so <- run_seurat_pipeline(nd_so)
+  save(nd_so, file = out_seurat)
 
   top_expressed_genes_tb <- find_top_cluster_expressed_genes(
-    seurat_obj = p1_p2_p3_p4_so)
-  save(p1_p2_p3_p4_so, top_expressed_genes_tb, file = out_seurat)
-  p1_p2_p3_p4_so <- subset(p1_p2_p3_p4_so, downsample = 250)
-  save(p1_p2_p3_p4_so, top_expressed_genes_tb, file = out_seurat_test)
+    seurat_obj = nd_so)
+  save(nd_so, top_expressed_genes_tb, file = out_seurat)
+  nd_so <- subset(nd_so, downsample = 250)
+  save(nd_so, top_expressed_genes_tb, file = out_seurat_test)
 
   # load(paste0(
   #   "/u/flashscratch/d/dpolioud/seurat/20190427"
   #   , "/p1_p2_p3_p4_filtered_rmp27.rdat"))
   #
-  # cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = p1_p2_p3_p4_so)
-  # save(p1_p2_p3_p4_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
+  # cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = nd_so)
+  # save(nd_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
 
 }
 ################################################################################
@@ -102,14 +102,17 @@ make_seurat_object <- function(
   # down-sample cells and genes for testing
   if (downsample_data == TRUE){
     print("down-sampling data")
-    seurat_obj <-
+    expr_M <-
       Read10X(data.dir = in_10x) %>%
-        .[unique(c(
-            sample(1:nrow(.), ds_n_genes)
-            # include MT genes
-            , grep(pattern = "^MT-", x = rownames(.))))
-          , sample(1:ncol(.), ds_n_cells)] %>%
-        CreateSeuratObject(counts = ., project = "p1-5_c1-5")
+        .[
+          # unique(c(
+          #   sample(1:nrow(.), ds_n_genes)
+          #   # include MT genes
+          #   , grep(pattern = "^MT-", x = rownames(.))))
+          , sample(1:ncol(.), ds_n_cells)]
+    print(str(expr_M))
+    seurat_obj <- CreateSeuratObject(counts = expr_M, project = "p1-5_c1-5")
+    rm(expr_M)
   # run full dataset
   } else {
     expr_M <- Read10X(data.dir = in_10x)
@@ -334,9 +337,10 @@ run_seurat_pipeline <- function(seurat_obj){
 
   print("ScaleData")
   seurat_obj <- ScaleData(seurat_obj
-      , do.scale = TRUE, do.center = TRUE, features = rownames(seurat_obj)
-      # , vars.to.regress = "library_id"
-      , display.progress = TRUE, num.cores = 8, do.par = TRUE)
+    , do.scale = TRUE, do.center = TRUE
+    , features = rownames(seurat_obj)
+    # , vars.to.regress = "percent_mito"
+    , display.progress = TRUE, num.cores = 8, do.par = TRUE)
 
   print("RunPCA")
   seurat_obj <- RunPCA(seurat_obj, online.pca = TRUE, npcs = 100
@@ -356,11 +360,8 @@ run_seurat_pipeline <- function(seurat_obj){
     , reduction = "pca", dims = 1:100, nn.eps = 0, k.param = 30)
 
   print("FindClusters")
-  for(i in c(0.4,0.5,0.6,0.7,0.8)){
-    print(paste0("clustering for resolution: ", i))
-    seurat_obj <- FindClusters(
-      object = seurat_obj, resolution = i, n.start = 100)
-  }
+  seurat_obj <- FindClusters(
+    object = seurat_obj, resolution = c(0.4,0.5,0.6,0.7,0.8), n.start = 100)
 
   return(seurat_obj)
 }
@@ -617,7 +618,7 @@ run_cca <- function(){
   filtered_loom <- connect(filename = out_filtered_loom, mode = "r+")
   # raw_loom <- connect(filename = out_raw_loom, mode = "r+")
 
-  p1_p2_p3_p4_so <- Convert(from = filtered_loom, to = "seurat"
+  nd_so <- Convert(from = filtered_loom, to = "seurat"
     , raw.data = "matrix"
     , gene.names = "row_attrs/gene_names"
     , cell.names = "col_attrs/cell_names"
@@ -634,24 +635,24 @@ run_cca <- function(){
 
   ## CCA
 
-  lib_ids <- unique(p1_p2_p3_p4_so@meta.data$library_id)
+  lib_ids <- unique(nd_so@meta.data$library_id)
 
-  cell_ids_1 <- p1_p2_p3_p4_so@meta.data %>%
+  cell_ids_1 <- nd_so@meta.data %>%
     rownames_to_column("cell_id") %>%
     as_tibble %>%
     filter(library_id == lib_ids[1]) %>%
     pull(cell_id)
 
-  ss_1_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_1)
+  ss_1_so <- SubsetData(nd_so, cells.use = cell_ids_1)
 
   for(i in 2:length(lib_ids)){
   # for(i in 2:6){
     lib_id <- lib_ids[[i]]
     print(lib_id)
 
-    cell_ids_2 <- p1_p2_p3_p4_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
+    cell_ids_2 <- nd_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
 
-    ss_2_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_2)
+    ss_2_so <- SubsetData(nd_so, cells.use = cell_ids_2)
 
     ss_1_so <- RunCCA(object = ss_1_so, object2 = ss_2_so, num.cc = 100)
 
@@ -709,24 +710,24 @@ run_cca <- function(){
 
 
 
-  lib_ids <- unique(p1_p2_p3_p4_so@meta.data$library_id)
+  lib_ids <- unique(nd_so@meta.data$library_id)
 
-  cell_ids_1 <- p1_p2_p3_p4_so@meta.data %>%
+  cell_ids_1 <- nd_so@meta.data %>%
     rownames_to_column("cell_id") %>%
     as_tibble %>%
     filter(library_id == lib_ids[1]) %>%
     pull(cell_id)
 
-  ss_1_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_1)
+  ss_1_so <- SubsetData(nd_so, cells.use = cell_ids_1)
 
   for(i in 2:length(lib_ids)){
   # for(i in 2:6){
     lib_id <- lib_ids[[i]]
     print(lib_id)
 
-    cell_ids_2 <- p1_p2_p3_p4_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
+    cell_ids_2 <- nd_so@meta.data %>% rownames_to_column("cell_id") %>% as_tibble %>% filter(library_id %in% lib_id) %>% pull(cell_id)
 
-    ss_2_so <- SubsetData(p1_p2_p3_p4_so, cells.use = cell_ids_2)
+    ss_2_so <- SubsetData(nd_so, cells.use = cell_ids_2)
 
     ss_1_so <- RunCCA(object = ss_1_so, object2 = ss_2_so, num.cc = 100)
 
@@ -775,5 +776,5 @@ run_cca <- function(){
 # use_python("/u/local/apps/python/3.6.1/bin/python3")
 # py_config()
 #
-# pbmc <- RunUMAP(p1_p2_p3_p4_so, reduction.use = "pca", dims.use = 1:10)
+# pbmc <- RunUMAP(nd_so, reduction.use = "pca", dims.use = 1:10)
 ################################################################################
