@@ -333,7 +333,8 @@ run_seurat_pipeline <- function(seurat_obj){
 
   print("FindVariableGenes")
   seurat_obj <- FindVariableFeatures(
-    seurat_obj, selection.method = "mean.var.plot", display.progress = TRUE)
+    seurat_obj, selection.method = "vst", display.progress = TRUE)
+    # seurat_obj, selection.method = "mean.var.plot", display.progress = TRUE)
 
   print("ScaleData")
   seurat_obj <- ScaleData(seurat_obj
