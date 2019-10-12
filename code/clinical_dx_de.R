@@ -6,7 +6,7 @@
 #  module load R/3.6.0
 
 # Sample qsub
-#   qsub -N dx_de -t 1-6 -l h_data=8G,h_rt=1:00:00 qsub_r_script.sh -p clinical_dx_de.R
+#   qsub -N dx_de -t 1-42 -l h_data=64G,h_rt=12:00:00 qsub_r_script.sh -p clinical_dx_de.R
 ################################################################################
 
 rm(list = ls())
@@ -28,8 +28,8 @@ print(paste0("cmd_args: ", cmd_args))
 
 ## Inputs
 in_seurat <- paste0(
-  "../analysis/seurat/20190820/full_dataset/"
-  , "p1-5_c1-5_filtered_rmp27_test.rdat")
+  "../analysis/seurat/20190916/percent_mt_8/reg_mt/"
+  , "p1-5_c1-5_filtered_rmp27.rdat")
 marker_genes_tb <- read_csv(
   "../resources/cluster_markers_mixed_20181019.csv")
 
@@ -41,10 +41,10 @@ graph_subtitle <- "P1-5 C1-5"
 ## Outputs
 out_table <- paste0(
   "../analysis/clinical_dx_de/", date
-  , "/tables/clinical_dx_de_")
+  , "/percent_mt_8/tables/clinical_dx_de_")
 out_graph <- paste0(
   "../analysis/clinical_dx_de/", date
-  , "/graphs/clinical_dx_de_")
+  , "/percent_mt_8/graphs/clinical_dx_de_")
 print(out_graph)
 print(out_table)
 
@@ -88,9 +88,16 @@ main_function <- function(){
         "inhibitory4",
         "micro5",
         "oligo6",
-        "OPC7")
+        "OPC7"
+      ),
+      region = c(
+        "preCG",
+        "calcarine"
+      )
     ) %>%
     as_tibble()
+  print(paste0("Dimensions of run_de_args_tb: ",
+    paste0(dim(run_de_args_tb), collapse = " ")))
   # need to assign in global environment for seurat subset() function for some reason
   assign("clinical_dxs",
     run_de_args_tb$clinical_dx[[as.numeric(cmd_args[1])]],
@@ -98,16 +105,21 @@ main_function <- function(){
   assign("cell_type_of_interest",
     run_de_args_tb$cell_type[[as.numeric(cmd_args[1])]],
     envir = .GlobalEnv)
+  assign("brain_region",
+    run_de_args_tb$region[[as.numeric(cmd_args[1])]],
+    envir = .GlobalEnv)
 
   # calculate DE with LM
   dx_de_tb <- run_de_with_lm_by_clinical_dx_and_cell_type(
     seurat_obj = nd_so,
     clinical_dxs = clinical_dxs,
+    brain_region = brain_region,
     cell_type_of_interest = cell_type_of_interest)
 
   # save DE table to csv
   out_dx_de_csv <- paste0(
       out_table, paste0(clinical_dxs, collapse = "_"), "_",
+      brain_region, "_",
       cell_type_of_interest, ".csv")
   print(paste0("out csv path: ", out_dx_de_csv))
   write_csv(dx_de_tb, path = out_dx_de_csv)
@@ -378,12 +390,14 @@ plot_dim_reduction_colored_by_cluster_cell_type_assignment <- function(
 run_de_with_lm_by_clinical_dx_and_cell_type <- function(
   seurat_obj,
   clinical_dxs = c("PSP-S", "Control"),
-  cell_type_of_interest = "excitatory3"){
+  cell_type_of_interest = "excitatory3",
+  brain_region = "calcarine"){
 
   print("run_de_with_lm_by_clinical_dx_and_cell_type")
 
   print(cell_type_of_interest)
   print(clinical_dxs)
+  print(brain_region)
 
   # subset seurat object to clinical_dxs and cell type of interest
   # cell_type and clinical_dxs variables need to be global for some reason
@@ -391,6 +405,8 @@ run_de_with_lm_by_clinical_dx_and_cell_type <- function(
     subset = cluster_cell_type == cell_type_of_interest)
   seurat_obj <- subset(x = seurat_obj,
     subset = clinical_dx == clinical_dxs)
+  seurat_obj <- subset(x = seurat_obj,
+    subset = region == brain_region)
 
   # DE Linear model
   expr_m <- GetAssayData(seurat_obj, slot = "data")
