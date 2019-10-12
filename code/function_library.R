@@ -36,3 +36,9 @@ clean_variable_names <- function(data){
     )
   return(cleaned)
 }
+
+make_plot_title <- function(title){
+  paste0(script_name
+    , "\n\n", title
+    , "\n", graph_subtitle)
+}
