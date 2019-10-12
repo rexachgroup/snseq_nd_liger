@@ -15,8 +15,6 @@ require(methods)
 require(Seurat)
 require(Matrix)
 require(irlba)
-require(cowplot)
-require(viridis)
 require(tidyverse)
 require(future)
 library(reticulate)
@@ -27,7 +25,8 @@ source("ggplot_theme.R")
 # require(xlsx)
 
 ## Inputs
-in_10x <- "/u/project/geschwind/drewse/g_singlecell/cellranger/data/20190624/aggr_20190625/outs/filtered_feature_bc_matrix/"
+in_10x <- "/u/scratch/d/drewse/cellranger/aggregate/20191002/outs/filtered_feature_bc_matrix/"
+cell_ranger_id_key_tb <- read_csv("/u/scratch/d/drewse/cellranger/cell_ranger_aggregate_data_args_20191002.csv")
 # metadata
 p5_c1to5_mt_df <- read_csv("../metadata/metaData_072319.csv")
 p1_mt_df <- read_csv("../metadata/PGC_group1_071018.csv")
@@ -37,23 +36,24 @@ p4_mt_df <- read_csv("../metadata/PCG_round4samples.csv")
 cr_metrics_summary <- read_csv("../analysis/cell_ranger/20190815_metrics_summary.csv")
 # biomart gene info
 bm_tb <- read_csv("../../RNAseq_singlecellfetal/source/BiomaRt_Compile_GeneInfo_GRCh38_Ensembl87.csv") %>% as_tibble %>% select(-X1)
+# cell type marker genes
+marker_genes_tb <- read_csv(
+  "../resources/cluster_markers_mixed_20181019.csv")
 
 ## Variables
 script_name <- "seurat.R"
 date <- format(Sys.Date(), "%Y%m%d")
 
 ## Outputs
-out_graph <- paste0("../analysis/seurat/", date, "/graphs/p1-5_c1-5_seurat_")
 out_seurat <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/percent_mt_8/reg_mt/p1-5_c1-5_filtered_rmp27.rdat")
+  , "/percent_mt_8/reg_umi/p1-5_c1-5_filtered.rdat")
 out_seurat_test <- gsub(".rdat", "_test.rdat", out_seurat)
 out_seurat_raw <- paste0(
   "/u/flashscratch/d/dpolioud/seurat/", date
-  , "/percent_mt_8/reg_mt/p1-5_c1-5_raw.rdat")
+  , "/percent_mt_8/reg_umi/p1-5_c1-5_raw.rdat")
 
 # Make directories
-# dir.create(dirname(out_graph), recursive = TRUE)
 dir.create(dirname(out_seurat), recursive = TRUE)
 ################################################################################
 
@@ -63,6 +63,7 @@ main_function <- function(){
 
   nd_raw_so <- make_seurat_object(
     downsample_data = FALSE, ds_n_genes = 6000, ds_n_cells = 3000)
+  # nd_raw_so <- subset(nd_raw_so, subset = clinical_dx == c("Control", "AD"))
   save(nd_raw_so, file = out_seurat_raw)
 
   nd_so <- qc_filter_genes_and_cells(
@@ -75,18 +76,16 @@ main_function <- function(){
   nd_so <- run_seurat_pipeline(nd_so)
   save(nd_so, file = out_seurat)
 
+  nd_so <- assign_cell_type_to_cell(seurat_obj = nd_so)
+  nd_so <- assign_cell_type_cluster(
+    seurat_obj = nd_so, cluster_col_name = "RNA_snn_res.0.6")
+
   top_expressed_genes_tb <- find_top_cluster_expressed_genes(
     seurat_obj = nd_so)
   save(nd_so, top_expressed_genes_tb, file = out_seurat)
+
   nd_so <- subset(nd_so, downsample = 250)
   save(nd_so, top_expressed_genes_tb, file = out_seurat_test)
-
-  # load(paste0(
-  #   "/u/flashscratch/d/dpolioud/seurat/20190427"
-  #   , "/p1_p2_p3_p4_filtered_rmp27.rdat"))
-  #
-  # cluster_enriched_tb <- find_cluster_enriched_genes(seurat_obj = nd_so)
-  # save(nd_so, top_expressed_genes_tb, cluster_enriched_tb, file = out_seurat)
 
 }
 ################################################################################
@@ -155,7 +154,7 @@ make_seurat_object <- function(
 
     # clean columns
     metadata_tb <- bind_rows(metadata_tb, tmp) %>%
-      select(-c(x14, x1, x19, x15, library_id_1, weightdissected, npdx1
+      select(-c(x14, x1, x15, library_id_1, weightdissected, npdx1
         , cell_counts))
 
     # add cell ranger alignment metrics
@@ -329,24 +328,24 @@ run_seurat_pipeline <- function(seurat_obj){
   print("run_seurat_pipeline")
 
   print("NormalizeData")
-  seurat_obj <- NormalizeData(object = seurat_obj, display.progress = TRUE)
+  seurat_obj <- NormalizeData(object = seurat_obj, verbose = TRUE)
 
   print("FindVariableGenes")
   seurat_obj <- FindVariableFeatures(
-    seurat_obj, selection.method = "vst", display.progress = TRUE)
-    # seurat_obj, selection.method = "mean.var.plot", display.progress = TRUE)
+    seurat_obj, selection.method = "vst", verbose = TRUE)
+    # seurat_obj, selection.method = "mean.var.plot", verbose = TRUE)
 
   print("ScaleData")
   seurat_obj <- ScaleData(seurat_obj
     , do.scale = TRUE, do.center = TRUE
     , features = rownames(seurat_obj)
-    # , vars.to.regress = "percent_mito"
-    , display.progress = TRUE, num.cores = 8, do.par = TRUE)
+    , vars.to.regress = "number_umi"
+    , verbose = TRUE, num.cores = 8, do.par = TRUE)
 
   print("RunPCA")
   seurat_obj <- RunPCA(seurat_obj, online.pca = TRUE, npcs = 100
       , do.print = TRUE, pcs.print = 1:5, genes.print = 5
-      , display.progress = TRUE)
+      , verbose = TRUE)
 
   print("RunTSNE")
   seurat_obj <- RunTSNE(
@@ -365,6 +364,60 @@ run_seurat_pipeline <- function(seurat_obj){
     object = seurat_obj, resolution = c(0.4,0.5,0.6,0.7,0.8), n.start = 100)
 
   return(seurat_obj)
+}
+################################################################################
+
+### asign cell type labels to cells
+
+assign_cell_type_to_cell <- function(seurat_obj){
+
+  print("assign_cell_type_to_cell")
+
+  marker_genes <- marker_genes_tb %>%
+    filter(source == "tsai") %>%
+    filter(gene_symbol %in% rownames(seurat_obj)) %>%
+    split(x = ., f = .$marker_for) %>%
+    map(., "gene_symbol")
+
+  # AddModuleScore() appends a sequential digit to the end of the label
+  # e.g. astrocyte to astrocyte1, endo to endo2
+  seurat_obj <- AddModuleScore(object = seurat_obj, features = marker_genes,
+    name = names(marker_genes))
+
+  seurat_obj$cell_type <- seurat_obj[[c("cell_ids", "astrocyte1", "endo2", "excitatory3", "inhibitory4", "micro5", "oligo6", "OPC7")]] %>%
+    as_tibble() %>%
+    gather(key = "cell_type", value = "score", -cell_ids) %>%
+    group_by(cell_ids) %>%
+    slice(which.max(score)) %>%
+    select(cell_ids, cell_type) %>%
+    right_join(., seurat_obj[["cell_ids"]]) %>%
+    pull(cell_type)
+
+  return(seurat_obj)
+
+}
+
+assign_cell_type_cluster <- function(
+  seurat_obj, cluster_col_name = "RNA_snn_res.0.6"){
+
+  print("assign_cell_type_cluster")
+
+  seurat_obj$cluster_ids <- seurat_obj[[cluster_col_name]] %>% pull
+
+  seurat_obj$cluster_cell_type <-
+    seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]] %>%
+      as_tibble() %>%
+      group_by(cluster_ids) %>%
+      count(cell_type) %>%
+      mutate(percent = n/sum(n)*100) %>%
+      slice(which.max(percent)) %>%
+      mutate(cluster_cell_type = ifelse(percent > 50, cell_type, "mixed")) %>%
+      right_join(., seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]],
+        by = "cluster_ids") %>%
+      pull(cluster_cell_type)
+
+  return(seurat_obj)
+
 }
 ################################################################################
 
