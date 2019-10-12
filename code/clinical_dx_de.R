@@ -20,10 +20,12 @@ require(RColorBrewer)
 source("function_library.R")
 source("ggplot_theme.R")
 source("seurat_function_library.R")
+
 sessionInfo()
 
 ## Command args to input to loop through args and run DE as array job
 cmd_args <- commandArgs(trailingOnly = TRUE)
+cmd_args <- 38
 print(paste0("cmd_args: ", cmd_args))
 
 ## Inputs
@@ -467,7 +469,14 @@ run_de_with_lm_by_clinical_dx_and_cell_type <- function(
     # order by log2 fold change
     arrange(desc(log2_fold_change_dx_vs_ctrl)) %>%
     # convert factors to characters
-    mutate_if(is.factor, as.character)
+    mutate_if(is.factor, as.character) %>%
+    as_tibble()
+
+  dx_de_tb <- dx_de_tb %>% mutate(
+    clinical_dxs = paste0(clinical_dxs, collapse = "_"),
+    brain_region = brain_region,
+    cell_type_of_interest = cell_type_of_interest,
+    number_of_cells = number_of_cells)
 
   return(dx_de_tb)
 }
