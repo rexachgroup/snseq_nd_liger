@@ -31,7 +31,7 @@ print(paste0("cmd_args: ", cmd_args))
 ## Inputs
 in_seurat <- paste0(
   "../analysis/seurat/20190916/percent_mt_8/reg_mt/"
-  , "p1-5_c1-5_filtered_rmp27.rdat")
+  , "p1-5_c1-5_filtered_rmp27_test.rdat")
 marker_genes_tb <- read_csv(
   "../resources/cluster_markers_mixed_20181019.csv")
 
@@ -475,8 +475,7 @@ run_de_with_lm_by_clinical_dx_and_cell_type <- function(
   dx_de_tb <- dx_de_tb %>% mutate(
     clinical_dxs = paste0(clinical_dxs, collapse = "_"),
     brain_region = brain_region,
-    cell_type_of_interest = cell_type_of_interest,
-    number_of_cells = number_of_cells)
+    cell_type_of_interest = cell_type_of_interest)
 
   return(dx_de_tb)
 }
