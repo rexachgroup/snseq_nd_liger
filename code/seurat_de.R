@@ -5,6 +5,9 @@
 # Must load modules:
 #  module load gcc/4.9.3
 #  module load R/3.3+
+
+# Sample qsub
+# qsub -N dx_de -t 6 -l h_data=64G,h_rt=1:00:00 qsub_r_script.sh -p 
 ################################################################################
 
 rm(list = ls())
