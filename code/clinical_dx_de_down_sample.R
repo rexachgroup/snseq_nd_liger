@@ -6,7 +6,7 @@
 #  module load R/3.6.0
 
 # Sample qsub
-#   qsub -N dx_de -t 1-48 -l h_data=64G,h_rt=2:00:00 qsub_r_script.sh -p clinical_dx_de_down_sample.R
+#   qsub -N dx_de_ds -t 1-96 -l h_data=64G,h_rt=2:00:00 -m n qsub_r_script.sh -p clinical_dx_de_down_sample.R
 ################################################################################
 
 rm(list = ls())
@@ -68,21 +68,22 @@ main_function <- function(){
         c("bvFTD", "Control")
       ),
       cell_type = c(
-        "excitatory3"
+        "excitatory3",
+        "oligo6"
       ),
       region = c(
         "preCG",
         "calcarine"
       ),
       number_of_cells = c(
-        100000,
-        75000,
-        50000,
-        25000,
         15000,
         10000,
+        7500,
         5000,
-        1000
+        2500,
+        1000,
+        750,
+        500
       )
     ) %>%
     as_tibble()
@@ -118,6 +119,34 @@ main_function <- function(){
       "_nCells_", number_of_cells, ".csv")
   print(paste0("out csv path: ", out_dx_de_csv))
   write_csv(dx_de_tb, path = out_dx_de_csv)
+
+  # to decide cell numbers:
+  nd_so[[c("cluster_cell_type", "clinical_dx", "region")]] %>% table
+  # , , region = calcarine
+  #
+  #                  clinical_dx
+  # cluster_cell_type    AD bvFTD Control PSP-S
+  #       astrocyte1   3550  2694    3147  2868
+  #       endo2         667   565     658   839
+  #       excitatory3 23293 20205   15831 27245
+  #       inhibitory4  1546  1777    1581  2345
+  #       micro5        849   629     358   888
+  #       mixed        5335  4104    5153  5178
+  #       oligo6       3664  2925    5268  4234
+  #       OPC7         1277  1558    1976  2061
+  #
+  # , , region = preCG
+  #
+  #                  clinical_dx
+  # cluster_cell_type    AD bvFTD Control PSP-S
+  #       astrocyte1   6357  5953    9193  4516
+  #       endo2         725  1472    1355   803
+  #       excitatory3 19117 26576   23078 25074
+  #       inhibitory4  3201  3393    3584  3704
+  #       micro5       1830  2305    1442  1530
+  #       mixed        6823  8733    8960  8371
+  #       oligo6      13832 10481   11148  7729
+  #       OPC7         2261  2268    3579  2936
 
   print("end of main_function")
 }
