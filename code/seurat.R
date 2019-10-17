@@ -21,7 +21,7 @@ library(reticulate)
 reticulate::use_python("/u/local/apps/python/3.7.2/bin/python3", required=TRUE)
 reticulate::py_config()   # check to make sure it is configured
 source("function_library.R")
-source("ggplot_theme.R")
+source("seurat_function_library.R")
 # require(xlsx)
 
 ## Inputs
@@ -364,60 +364,6 @@ run_seurat_pipeline <- function(seurat_obj){
     object = seurat_obj, resolution = c(0.4,0.5,0.6,0.7,0.8), n.start = 100)
 
   return(seurat_obj)
-}
-################################################################################
-
-### asign cell type labels to cells
-
-assign_cell_type_to_cell <- function(seurat_obj){
-
-  print("assign_cell_type_to_cell")
-
-  marker_genes <- marker_genes_tb %>%
-    filter(source == "tsai") %>%
-    filter(gene_symbol %in% rownames(seurat_obj)) %>%
-    split(x = ., f = .$marker_for) %>%
-    map(., "gene_symbol")
-
-  # AddModuleScore() appends a sequential digit to the end of the label
-  # e.g. astrocyte to astrocyte1, endo to endo2
-  seurat_obj <- AddModuleScore(object = seurat_obj, features = marker_genes,
-    name = names(marker_genes))
-
-  seurat_obj$cell_type <- seurat_obj[[c("cell_ids", "astrocyte1", "endo2", "excitatory3", "inhibitory4", "micro5", "oligo6", "OPC7")]] %>%
-    as_tibble() %>%
-    gather(key = "cell_type", value = "score", -cell_ids) %>%
-    group_by(cell_ids) %>%
-    slice(which.max(score)) %>%
-    select(cell_ids, cell_type) %>%
-    right_join(., seurat_obj[["cell_ids"]]) %>%
-    pull(cell_type)
-
-  return(seurat_obj)
-
-}
-
-assign_cell_type_cluster <- function(
-  seurat_obj, cluster_col_name = "RNA_snn_res.0.6"){
-
-  print("assign_cell_type_cluster")
-
-  seurat_obj$cluster_ids <- seurat_obj[[cluster_col_name]] %>% pull
-
-  seurat_obj$cluster_cell_type <-
-    seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]] %>%
-      as_tibble() %>%
-      group_by(cluster_ids) %>%
-      count(cell_type) %>%
-      mutate(percent = n/sum(n)*100) %>%
-      slice(which.max(percent)) %>%
-      mutate(cluster_cell_type = ifelse(percent > 50, cell_type, "mixed")) %>%
-      right_join(., seurat_obj[[c("cluster_ids", "cell_ids", "cell_type")]],
-        by = "cluster_ids") %>%
-      pull(cluster_cell_type)
-
-  return(seurat_obj)
-
 }
 ################################################################################
 
