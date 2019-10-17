@@ -10,12 +10,13 @@
 #$ -S /bin/bash
 #$ -V
 #$ -N Rscript
-#$ -o logs/qsub_r_script_seurat_plots_ad_ctrl_$JOB_NAME_$JOB_ID_$TASK_ID.log
-#$ -e logs/qsub_r_script_seurat_plots_ad_ctrl_$JOB_NAME_$JOB_ID_$TASK_ID.error
-#$ -l h_data=128G,h_rt=12:00:00
+#$ -o logs/qsub_r_script_$JOB_NAME_$JOB_ID_$TASK_ID.log
+#$ -e logs/qsub_r_script_$JOB_NAME_$JOB_ID_$TASK_ID.error
+#$ -l h_data=256G,h_rt=24:00:00
 # #$ -pe shared 8
 #$ -t 1
-# #$ -m bea
+#$ -m bea
+# #$ -m n
 # #$ -hold_jid
 
 # reminder: make /logs directory in code directory
