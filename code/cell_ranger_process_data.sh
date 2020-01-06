@@ -56,7 +56,8 @@ usage () {
 
 ## variables
 
-project_dir="/u/home/d/dpolioud/project-geschwind/nucseq_nd"
+cellranger_bin="/u/project/geschwind/chenlo/Software/SeqBuilds/cellranger-3.1.0/cellranger-cs/3.1.0/bin/cellranger"
+project_dir="/u/project/geschwind/chenlo/nucseq-atac"
 # arguments
 # required
 in_args_tsv=
@@ -142,7 +143,7 @@ mkdir -p ${outdir}
 cd ${outdir}
 
 # run cell ranger count
-/u/home/d/dpolioud/bin/cellranger-2.2.0/cellranger count \
+${cellranger_bin} count \
   --id=${id} \
   --transcriptome=${reference} \
   --fastqs=${fastqs} \
@@ -150,7 +151,7 @@ cd ${outdir}
   --force-cells=${force_cells}
   # --expect-cells=${expect_cells} \
 
-  # /u/home/d/dpolioud/bin/cellranger-2.2.0/cellranger count \
+  # ${cellranger_bin} count \
   #   --id=P2_7B \
   #   --transcriptome=/u/nobackup/dhg/common_resources/ref_genomes/cellranger/refdata-cellranger-GRCh38-3.0.0_premrna \
   #   --fastqs=/u/home/d/dpolioud/project-geschwind/nucseq_nd/raw_data/fastq/20190214/HYJCKBBXX/JR001 \
