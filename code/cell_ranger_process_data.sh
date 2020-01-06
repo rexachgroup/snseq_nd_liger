@@ -12,9 +12,9 @@
 #$ -N CellR_PD
 #$ -o logs/cell_ranger_process_data_$JOB_ID_$TASK_ID.log
 #$ -e logs/cell_ranger_process_data_$JOB_ID_$TASK_ID.error
-#$ -l h_data=192G,h_rt=36:00:00,highp
+#$ -l h_data=192G,h_rt=12:00:00,highp,highmem
 # #$ -pe shared 8
-#$ -t 1-16
+#$ -t 1-4
 #$ -tc 6
 # #$ -m bea
 
