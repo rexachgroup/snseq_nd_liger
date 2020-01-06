@@ -9,7 +9,7 @@
 #$ -cwd
 #$ -S /bin/bash
 #$ -V
-#$ -N CellR_PD
+#$ -N cellrng_lc
 #$ -o logs/cell_ranger_process_data_$JOB_ID_$TASK_ID.log
 #$ -e logs/cell_ranger_process_data_$JOB_ID_$TASK_ID.error
 #$ -l h_data=192G,h_rt=12:00:00,highp,highmem
