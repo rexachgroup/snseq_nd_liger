@@ -112,6 +112,15 @@ force_cells=${argsA[6]}
 # remove quotes (awk adds quotes to string with comma for some reason)
 fastqs=$(echo ${fastqs} | sed 's/"//g')
 
+echo "Arguments:"
+echo "tsv of cell ranger parameters: ${in_args_tsv}"
+echo "ID: ${id}"
+echo "path to reference genome: ${reference}"
+echo "path to fastqs directory: ${fastqs}"
+echo "sample ID: ${sample}"
+echo "number of expected: ${expect_cells}"
+echo "output directory: ${outdir}"
+echo "number of cells to force: ${force_cells}"
 # check arguments
 # -z switch will test if the expansion of "$1" is a null string or not. If it is
 # a null string then the body is executed.
@@ -126,16 +135,6 @@ if  [ -z "${in_args_tsv}" ] || \
     exit 1
 fi
 
-echo "Arguments:"
-echo "tsv of cell ranger parameters: ${in_args_tsv}"
-echo "ID: ${id}"
-echo "path to reference genome: ${reference}"
-echo "path to fastqs directory: ${fastqs}"
-echo "sample ID: ${sample}"
-echo "number of expected: ${expect_cells}"
-echo "output directory: ${outdir}"
-echo "number of cells to force: ${force_cells}"
-
 ## run cell ranger count
 
 # output directory (cell ranger outputs in dir it is executed from)
@@ -148,8 +147,8 @@ ${cellranger_bin} count \
   --transcriptome=${reference} \
   --fastqs=${fastqs} \
   --sample=${sample} \
-  --force-cells=${force_cells}
-  # --expect-cells=${expect_cells} \
+  --force-cells=${force_cells} \
+  --expect-cells=${expect_cells}
 
   # ${cellranger_bin} count \
   #   --id=P2_7B \
