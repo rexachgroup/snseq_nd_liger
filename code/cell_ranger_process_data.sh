@@ -99,7 +99,7 @@ sed 's/\xEF\xBB\xBF//' < ${in_args_tsv} > ../tmp/tmp_${SGE_TASK_ID}.tsv
 # read arguments from tsv
 # RS='\r\n' to clean windows line ends
 read -r -a argsA <<< $(awk -v taskID="${SGE_TASK_ID}" 'BEGIN {FS="\t"; OFS=" ";}
-	NR == taskID {print $1; print $2; print $3; print $4; print $5; print $6; print $7}' RS='\r\n' ../tmp/tmp_${SGE_TASK_ID}.tsv)
+	NR == taskID {print $1; print $2; print $3; print $4; print $5; print $6; print $7}' ../tmp/tmp_${SGE_TASK_ID}.tsv)
 
 # assign args from tsv to variables
 id=${argsA[0]}
