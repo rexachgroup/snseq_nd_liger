@@ -148,7 +148,7 @@ ${cellranger_bin} count \
   --fastqs=${fastqs} \
   --sample=${sample} \
   --force-cells=${force_cells} \
-  --expect-cells=${expect_cells}
+  # --expect-cells=${expect_cells}
 
   # ${cellranger_bin} count \
   #   --id=P2_7B \
