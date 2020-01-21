@@ -57,7 +57,7 @@ usage () {
 ## variables
 
 cellranger_bin="/u/project/geschwind/chenlo/Software/SeqBuilds/cellranger-3.1.0/cellranger-cs/3.1.0/bin/cellranger"
-project_dir="/u/project/geschwind/chenlo/nucseq-atac"
+project_dir=$(pwd -P)
 # arguments
 # required
 in_args_tsv=
@@ -91,23 +91,24 @@ done
 # "$@" contains all file names
 
 # make tmp directory
-mkdir -p ../tmp
+mkdir -p ${project_dir}/tmp
+tmpfile=${project_dir}/tmp/tmp_${SGE_TASK_ID}.tsv
 
 # remove <U+FEFF> character from tsv files
-sed 's/\xEF\xBB\xBF//' < ${in_args_tsv} > ../tmp/tmp_${SGE_TASK_ID}.tsv
+sed 's/\xEF\xBB\xBF//' < ${in_args_tsv} > ${tmpfile}
 
 # read arguments from tsv
 # RS='\r\n' to clean windows line ends
 read -r -a argsA <<< $(awk -v taskID="${SGE_TASK_ID}" 'BEGIN {FS="\t"; OFS=" ";}
-	NR == taskID {print $1; print $2; print $3; print $4; print $5; print $6; print $7}' ../tmp/tmp_${SGE_TASK_ID}.tsv)
+	NR == taskID {print $0}' ${tmpfile})
 
 # assign args from tsv to variables
 id=${argsA[0]}
 reference=${argsA[1]}
 fastqs=${argsA[2]}
 sample=${argsA[3]}
-expect_cells=${argsA[4]}
-outdir=${argsA[5]}
+outdir=${argsA[4]}
+expect_cells=${argsA[5]}
 force_cells=${argsA[6]}
 # remove quotes (awk adds quotes to string with comma for some reason)
 fastqs=$(echo ${fastqs} | sed 's/"//g')
@@ -118,8 +119,8 @@ echo "ID: ${id}"
 echo "path to reference genome: ${reference}"
 echo "path to fastqs directory: ${fastqs}"
 echo "sample ID: ${sample}"
-echo "number of expected: ${expect_cells}"
 echo "output directory: ${outdir}"
+echo "number of expected: ${expect_cells}"
 echo "number of cells to force: ${force_cells}"
 # check arguments
 # -z switch will test if the expansion of "$1" is a null string or not. If it is
@@ -128,7 +129,6 @@ if  [ -z "${in_args_tsv}" ] || \
 		[ -z "${reference}" ] || \
 		[ -z "${fastqs}" ] || \
 		[ -z "${sample}" ] || \
-		[ -z "${expect_cells}" ] || \
 		[ -z "${outdir}" ]
   then
     usage "Missing required arguments"
@@ -142,23 +142,36 @@ mkdir -p ${outdir}
 cd ${outdir}
 
 # run cell ranger count
-${cellranger_bin} count \
-  --id=${id} \
-  --transcriptome=${reference} \
-  --fastqs=${fastqs} \
-  --sample=${sample} \
-  --force-cells=${force_cells} \
-  # --expect-cells=${expect_cells}
 
-  # ${cellranger_bin} count \
-  #   --id=P2_7B \
-  #   --transcriptome=/u/nobackup/dhg/common_resources/ref_genomes/cellranger/refdata-cellranger-GRCh38-3.0.0_premrna \
-  #   --fastqs=/u/home/d/dpolioud/project-geschwind/nucseq_nd/raw_data/fastq/20190214/HYJCKBBXX/JR001 \
-  #   --sample=JR001 \
-  #   --force-cells=7000
+## run with expect_cells if it's greater than 0. otherwise, run with force_cells
+if [ -n ${expect_cells} ] && [ "0" -lt ${expect_cells} ]; then
+	cmd="${cellranger_bin} count \
+	  --id=${id} \
+	  --transcriptome=${reference} \
+	  --fastqs=${fastqs} \
+	  --sample=${sample} \
+	  --expect-cells=${expect_cells}"
+elif [ -n ${force_cells} ] && [ "0" -lt ${force_cells} ]; then
+	cmd="${cellranger_bin} count \
+	  --id=${id} \
+	  --transcriptome=${reference} \
+	  --fastqs=${fastqs} \
+	  --sample=${sample} \
+	  --force-cells=${force_cells}"
+else
+	cmd="${cellranger_bin} count \
+	  --id=${id} \
+	  --transcriptome=${reference} \
+	  --fastqs=${fastqs} \
+	  --sample=${sample}"
+fi
+
+echo ${cmd}
+${cmd}
+
 
 # cleanup
-rm ${project_dir}/tmp/tmp_${SGE_TASK_ID}.tsv
+rm ${tmpfile}
 ##########################################################################
 
 echo ""
