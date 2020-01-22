@@ -9,10 +9,10 @@
 #$ -cwd
 #$ -S /bin/bash
 #$ -V
-#$ -N CellR_Ag
+#$ -N chenlo_cellragg
 #$ -o logs/cell_ranger_aggregate_data_$JOB_ID.log
 #$ -e logs/cell_ranger_aggregate_data_$JOB_ID.error
-#$ -l h_data=256G,h_rt=24:00:00
+#$ -l h_data=256G,h_rt=24:00:00,highp,highmem
 #$ -m bea
 
 # csv args file saved as excel default CSV UTF-8
@@ -42,7 +42,8 @@ usage () {
 
 ## variables
 
-project_dir="/u/home/d/dpolioud/project-geschwind/nucseq_nd"
+project_dir=$(pwd -P ..)
+cellranger_bin="/u/project/geschwind/chenlo/Software/SeqBuilds/cellranger-3.1.0/cellranger-cs/3.1.0/bin/cellranger"
 
 ## handle arguments
 
@@ -94,8 +95,8 @@ echo "output directory: ${out_dir}"
 # directory /DIR, this path would be /DIR/ID/outs/molecule_info.h5.
 
 # remove <U+FEFF> character from csv files
-mkdir -p ../tmp
-sed 's/\xEF\xBB\xBF//' < ${in_args} > ../tmp/tmp.csv
+mkdir -p ${project_dir}/tmp
+sed 's/\xEF\xBB\xBF//' < ${in_args} > ${project_dir}/tmp/tmp.csv
 
 
 ## run cell ranger aggregate
@@ -116,14 +117,14 @@ sed 's/\xEF\xBB\xBF//' < ${in_args} > ../tmp/tmp.csv
 mkdir -p ${out_dir}
 cd ${out_dir}
 
-cellranger aggr \
+${cellranger_bin} aggr \
   --id=${id} \
   --csv=${project_dir}/tmp/tmp.csv \
   --normalize=mapped
   # --normalize=none
 
 # cleanup
-rm /u/home/d/dpolioud/project-geschwind/nucseq_nd/tmp/tmp.csv
+rm ${project_dir}/tmp/tmp.csv
 ################################################################################
 
 echo ""
