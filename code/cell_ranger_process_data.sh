@@ -20,10 +20,7 @@
 
 # tsv args file saved as excel default tsv UTF-8
 # run as array job, set -t option to number of samples
-# reminder: make /logs directory in code directory
 
-# to copy html summary files to one folder and label with sample id
-# for dir in ../data/20190306/P*; do id=$(basename ${dir}); cp ../data/20190306/$id/outs/web_summary.html ../data/20190306/web_summaries/"$id"_web_summary.html; done
 ################################################################################
 echo ""
 echo "Starting cell_ranger_process_data.sh ${SGE_TASK_ID}... "$(date)
