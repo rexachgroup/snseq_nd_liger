@@ -12,7 +12,7 @@
 #$ -N chenlo_cellragg
 #$ -o logs/cell_ranger_aggregate_data_$JOB_ID.log
 #$ -e logs/cell_ranger_aggregate_data_$JOB_ID.error
-#$ -l h_data=256G,h_rt=24:00:00,highp,highmem
+#$ -l h_data=64G,h_rt=24:00:00,highp
 #$ -m bea
 
 # csv args file saved as excel default CSV UTF-8
@@ -124,7 +124,7 @@ ${cellranger_bin} aggr \
   # --normalize=none
 
 # cleanup
-rm ${project_dir}/tmp/tmp.csv
+#rm ${project_dir}/tmp/tmp.csv
 ################################################################################
 
 echo ""
