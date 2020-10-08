@@ -1,22 +1,17 @@
 # Damon Polioudakis
-# 2020-02-21
+# lchen
 # Plots of seurat analysis
-
-# Must load modules:
-#  module load R/3.6.0
-
-# Sample qsub:
-# qsub -N liger_pl -t 1-30 -m n -tc 5 -l h_data=64G,h_rt=8:00:00 qsub_r_script.sh -p liger_subcluster_plots_20200825.R
 ###########################################################################
 
 rm(list = ls())
-set.seed(27)
+set.seed(0)
 
 require(methods)
 require(Seurat)
 require(Matrix)
 require(cowplot)
 require(ggcorrplot)
+require(ggpubr)
 require(viridis)
 require(RColorBrewer)
 require(tidyverse)
@@ -29,21 +24,11 @@ sessionInfo()
 
 ## Command line arguments
 cmd_args <- commandArgs(trailingOnly = TRUE)
-# cmd_args <- 11
-print(paste0("Command line args: ", cmd_args))
 
 ## inputs
-# if supplied use commandArgs to select input path from input dir file list
-if(! is.na(cmd_args[1])){
-  in_seurat_l <- list.files("../analysis/liger_subcluster/20200824/", full.names = TRUE)
-  in_seurat_l <- in_seurat_l[-grep("test", in_seurat_l)]
-  in_seurat <- in_seurat_l[as.numeric(cmd_args[1])]
-  print(in_seurat)
-} else {
-  in_seurat <- paste0(
-    "/u/scratch/d/dpolioud/liger_subcluster/20200126/reg_umi/k50_lambda1/"
-    , "liger_subcluster_AD_Control_excitatory_test.rdat")
-}
+#in_seurat <- "../analysis/seurat_lchen/liger_subcluster_subset.rds"
+in_seurat_metadata <- readRDS("../analysis/seurat_lchen/liger_subcluster_subset.rds")
+
 marker_genes_tb <- read_csv(
   "../resources/cluster_markers_mixed_20181019.csv")
 marker_genes_refined_tb <- read_csv(
@@ -55,43 +40,41 @@ in_inhibitory_marker <- "../resources/inhibitory_markers_20200711.csv"
 in_dx_markers <- "../resources/disease_gene_markers_jessica_20200429.csv"
 polo_ad_gwas_genes_tb <- read_csv("../resources/grubman_2019_st5_AD_GWAS_genes_ad.csv")
 
-## Variables
-date <- format(Sys.Date(), "%Y%m%d")
-script_name <- "liger_subcluster_plots.R"
-# pull clinical dx and cell type from input file path or output file path
-out_file <- gsub(".*/", "", in_seurat) %>% gsub(".rdat", "", .)
-graph_subtitle <- paste0(
-  basename(out_file) %>% gsub(".rdat", "", .) %>% gsub("_", " ", .),
-  "\nP1-5 C1-5 I1-5")
-dx_order <- c("AD", "bvFTD", "PSP-S", "Control")
-
-## outputs
-out_graph <- paste0("../analysis/liger_subcluster/", date
-  , "/graphs/", out_file, "_")
-out_table <- paste0("../analysis/liger_subcluster/", date
-  , "/tables/", out_file, "_")
 
 # make directories
-dir.create(dirname(out_graph), recursive = TRUE)
-dir.create(dirname(out_table), recursive = TRUE)
+#dir.create(dirname(out_graph), recursive = TRUE)
+#dir.create(dirname(out_table), recursive = TRUE)
 ###########################################################################
 
 ### functions
 
-main_function <- function(){
+main_function <- function(seurat_rdat){
 
   print("main_function")
+  load(seurat_rdat)
+  writeLines(seurat_rdat)
 
-  load(in_seurat)
+  ## The plotting functions expect these variables to be defined as globals, which is an
+  ## "interesting" interaction when running main_function in a loop
+  #date <<- format(Sys.Date(), "%Y%m%d")
+  out_file <- basename(seurat_rdat) %>% gsub("\\..*", "", .)
+  graph_subtitle = basename(out_file)
 
-  # for when Seurat v2.3 was used for running CCA (not yet in v3.0)
-  # liger_so <- UpdateSeuratObject(liger_so)
+  global_exports <- list(
+    "script_name" = "liger_subcluster_plots.R",
+    "out_file" = out_file,
+    "graph_subtitle" = graph_subtitle,
+    "dx_order" = c("AD", "bvFTD", "PSP-S", "Control"),
+    "out_graph" = paste0("../analysis/seurat_lchen/graphs/", out_file, "_"),
+    "out_table" = paste0("../analysis/seurat_lchen/tables/", out_file, "_")
+  )
+  list2env(global_exports, envir = .GlobalEnv)
 
   # set data types and factor orders
   liger_so[["prep"]] <- liger_so[["prep"]] %>% pull() %>%
     factor(., levels = c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"))
   liger_so[["clinical_dx"]] <- liger_so[["clinical_dx"]] %>% pull() %>%
-    factor(., levels = c("AD", "bvFTD", "PSP-S", "Control"))
+    fct_relevel(dx_order)
 
   liger_so$cluster_ids <- liger_so[["liger_clusters"]]
   liger_so$cell_ids <- liger_so[[]] %>% rownames
@@ -130,11 +113,12 @@ main_function <- function(){
     row_title = "Dx marker genes (Jessica)",
     plot_title = "Expression of disease marker genes currated by Jessica",
     plot_width = 12, plot_height = 12,
+    out_graph,
     out_graph_suffix = "dx_marker_heatmap.png")
 
   ## Cell type specific plots
 
-  if(grepl("excitatory", in_seurat) == TRUE){
+  if(grepl("excitatory", seurat_rdat) == TRUE){
 
     plot_excitatory_marker_expression_dim_reduction(
       seurat_obj = liger_so, cluster_col_name = "liger_clusters",
@@ -142,11 +126,12 @@ main_function <- function(){
 
     plot_heatmap_of_excitatory_marker_expression(
       seurat_obj = liger_so, cluster_col_name = "liger_clusters",
+      out_graph,
       in_exc_marker = in_exc_marker)
 
   }
 
-  if(grepl("inhibitory", in_seurat) == TRUE){
+  if(grepl("inhibitory", seurat_rdat) == TRUE){
 
     marker_genes_tb <- read_csv(in_inhibitory_marker) %>% select(gene_symbol, marker_for)
     marker_genes <- marker_genes_tb %>% pull(gene_symbol)
@@ -163,6 +148,7 @@ main_function <- function(){
       row_title = "Marker genes (Inma / Lake et al.)",
       plot_title = "Expression of Inma / Lake et al. inhibitory subtype markers",
       plot_width = 12, plot_height = 8,
+      out_graph = out_graph,
       out_graph_suffix = "inhibitory_marker_heatmap_zscore.png")
 
   }
@@ -171,7 +157,7 @@ main_function <- function(){
 ###########################################################################
 
 plot_heatmap_of_excitatory_marker_expression <- function(
-  seurat_obj, cluster_col_name, in_exc_marker){
+  seurat_obj, cluster_col_name, in_exc_marker, out_graph){
 
   print("plot_heatmap_of_excitatory_marker_expression()")
 
@@ -278,7 +264,7 @@ plot_heatmap_of_marker_expression_with_dx_annotation <- function(
   seurat_obj, cluster_col_name, marker_genes_tb,
   z_score = FALSE,
   row_title = "genes", plot_title = "",
-  plot_width = 12, plot_height = 12, out_graph_suffix){
+  plot_width = 12, plot_height = 12, out_graph, out_graph_suffix){
 
   # marker_genes_tb
   #    gene_symbol marker_for
@@ -292,7 +278,8 @@ plot_heatmap_of_marker_expression_with_dx_annotation <- function(
 
   # clean up marker tibble
   marker_genes_tb <- marker_genes_tb %>%
-    filter(! is.na(gene_symbol))
+    filter(! is.na(gene_symbol)) %>%
+    filter(gene_symbol %in% rownames(seurat_obj))
   # combine genes that are markers for multiple
   duplicated_genes <- marker_genes_tb$gene_symbol[duplicated(marker_genes_tb$gene_symbol)]
   for(duplicated_gene in duplicated_genes){
@@ -401,9 +388,11 @@ plot_heatmap_of_marker_expression_with_dx_annotation <- function(
 
   print("end of... plot_heatmap_of_marker_expression_with_dx_annotation()")
 }
+
 ###########################################################################
 
 ### main function
-
-main_function()
+map(unique(in_seurat_metadata$filepath), function(seurat_rdat_path) {
+  main_function(seurat_rdat_path)
+})
 ###########################################################################
