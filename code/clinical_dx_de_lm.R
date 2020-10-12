@@ -6,6 +6,8 @@ require(tidyverse)
 require(RColorBrewer)
 require(broom)
 require(future.apply)
+require(ggpubr)
+require(patchwork)
 source("function_library.R")
 source("ggplot_theme.R")
 source("seurat_function_library.R")
@@ -35,7 +37,8 @@ out_table <- paste0(
 out_graph <- paste0(
   out_path_base, date,
   "/graphs/clinical_dx_de_pmi_brain_bank_")
-seurat_checkpt <- paste0(out_path_base, date, "/p1-5_c1-5_fixed.rds")
+dir.create(dirname(out_table), recursive = TRUE)
+dir.create(dirname(out_graph), recursive = TRUE)
 print(out_graph)
 print(out_table)
 
@@ -55,33 +58,16 @@ main <- function() {
     clinical_dx <- c("bvFTD", "Control")
     cell_type <- "microglia"
     region <- "preCG"
-    # calculate DE with LM
-    model_design_set1 <- "expression ~ clinical_dx + sex + finalsite + pmi_h"
-    lm_broom_set1 <- run_de_with_lm_by_clinical_dx_and_cell_type(
-        seurat_obj = so,
-        clinical_dx = clinical_dx,
-        region = region,
-        cell_type = cell_type,
-        model_design = model_design_set1,
-        down_sample_cells = 10000)
-    lm_tb_set1 <- filter_and_format_lm_output(
-        lm_out_obj_l = lm_broom_set1, 
-        seurat_obj = so,
-        clinical_dx = clinical_dx,
-        region = region,
-        cell_type = cell_type,
-        model_design = model_design_set1,
-        beta_regex = "clinical_dx")
     
-    model_design_set2 <- "expression ~ clinical_dx + sex + finalsite + pmi_h + age + rin + percent_mito"
-    lm_broom_set2 <- run_de_with_lm_by_clinical_dx_and_cell_type(
+    model_design_set3 <- "expression ~ clinical_dx + sex + finalsite + pmi_h + age + rin + percent_mito + prep"
+    lm_broom_set3 <- run_de_with_lm_by_clinical_dx_and_cell_type(
         seurat_obj = so,
         clinical_dx = clinical_dx,
         region = region,
         cell_type = cell_type,
         model_design = model_design_set2,
         down_sample_cells = 10000)
-    lm_tb_set2 <- filter_and_format_lm_output(
+    lm_tb_set3 <- filter_and_format_lm_output(
         lm_out_obj_l = lm_broom_set2, 
         seurat_obj = so,
         clinical_dx = clinical_dx,
@@ -90,35 +76,24 @@ main <- function() {
         model_design = model_design_set2,
         beta_regex = "clinical_dx")
 
+    precg_micro_bvftd <- so@meta.data %>%
+        filter(region == {{region}},
+               clinical_dx %in% {{clinical_dx}},
+               cluster_cell_type_and_layer == {{cell_type}}) %>%
+        as_tibble(rownames = "id")
 
-    model_pmi <- "expression ~ pmi_h"
-    lm_broom_pmi_ctl <- run_de_with_lm_by_clinical_dx_and_cell_type(
-        seurat_obj = so,
-        clinical_dx = "Control",
-        region = region,
-        cell_type = cell_type,
-        model_design = model_pmi,
-        down_sample_cells = 10000)
-    lm_broom_pmi_dx_bvftd <- run_de_with_lm_by_clinical_dx_and_cell_type(
-        seurat_obj = so,
-        clinical_dx = "bvFTD",
-        region = region,
-        cell_type = cell_type,
-        model_design = model_pmi,
-        down_sample_cells = 10000)
+    test_tb <- wilcox_test_cols(precg_micro_bvftd, "clinical_dx", 
+        list("age", "rin", "percent_mito", "pmi_h", "number_umi", "number_genes", "finalsite", "sex", "prep"))
 
-    lm_broom_pmi_dx_pid <- run_de_with_lm_by_clinical_dx_and_cell_type(so, "PiD", region, cell_type, model_pmi, 10000)
+    meta_barplots <- ggplot_grouped_barplot(precg_micro_bvftd, "clinical_dx",
+        c("age", "rin", "percent_mito", "pmi_h", "number_umi", "number_genes", "prep"))
+    write_csv(precg_micro_bvftd, paste0(out_table, "meta.csv"))
+    write_csv(lm_tb_set3, paste0(out_table, "lm_tb_set3.csv"))
+    write_csv(test_tb, paste0(out_table, "mann-whitney_metadata.csv"))
 
-    lm_tb_pmi_ctl <- filter_and_format_lm_output(lm_broom_pmi_ctl, so, 
-        clinical_dx = "Control", cell_type = cell_type, region = region, model = model_pmi, "pmi_h")
-    lm_tb_pmi_dx_bvftd <- filter_and_format_lm_output(lm_broom_pmi_dx_bvftd, so, 
-        clinical_dx = "bvFTD", cell_type = cell_type, region = region, model_pmi, "pmi_h")
-
-
-    write_csv(lm_tb_set1, paste0(out_table, "lm_tb_set1.csv"))
-    write_csv(lm_tb_set2, paste0(out_table, "lm_tb_set2.csv"))
-    write_csv(lm_tb_pmi_ctl, paste0(out_table, "lm_tb_pmi_ctl.csv"))
-    write_csv(lm_tb_pmi_dx, paste0(out_table, "lm_tb_pmi_dx.csv"))
+    pdf(paste0(out_graph, "meta_barplots.pdf"), width = 16, height = 8 * (length(meta_barplots) / 2))
+    tryCatch({wrap_plots(meta_barplots, ncol = 2)}, error = print)
+    dev.off()
 }
 
 
@@ -270,6 +245,30 @@ filter_and_format_lm_output <- function(
 
   return(lm_out_tb)
 
+}
+
+
+wilcox_test_cols <- function(tb, group_name, test_list) {
+    lapply(test_list, function(var_name) {
+        test_vec <- tb[[var_name]]
+        if (!is.numeric(test_vec)) {
+            test_vec <- as.numeric(factor(test_vec))
+            var_name <- paste0("as_numeric_", var_name)
+        }
+        group_vec <- tb[[group_name]]
+        out_tb <- broom::tidy(pairwise.wilcox.test(test_vec, group_vec, paired = FALSE))
+        out_tb$var <- var_name
+        return(out_tb)
+    }) %>% bind_rows()
+}
+
+ggplot_grouped_boxplot <- function(tb, x_name, var_list) {
+    return(lapply(var_list, function(var_name) {
+        ggplot(tb, aes_string(x = x_name, y = var_name, fill = x_name)) +
+            geom_boxplot() +
+            stat_compare_means(paired = FALSE) +
+            ggtitle(var_name)
+    }))
 }
 
 if (interactive()) {
