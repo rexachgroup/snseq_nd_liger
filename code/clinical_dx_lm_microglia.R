@@ -25,18 +25,18 @@ in_jessica_go_gene_list <- "../resources/20200607_jessica_input_up.txt"
 metadata_corrections_tb <- read_csv("../metadata/2020.06.13_corrected_metadata_jessica.csv")
 
 ## Variables
-script_name <- "clinical_dx_de_lm_pmi_brain_bank.R"
+script_name <- "clinical_dx_de_microglia.R"
 date <- format(Sys.Date(), "%Y%m%d")
 graph_subtitle <- "P1-5"
 
 ## Outputs
-out_path_base <- "../analysis/clinical_dx_de_pmi_brain_bank/"
+out_path_base <- "../analysis/clinical_dx_lm_microglia/"
 out_table <- paste0(
   out_path_base, date,
-  "/tables/clinical_dx_de_pmi_brain_bank_")
+  "/tables/clinical_dx_lm_microglia")
 out_graph <- paste0(
   out_path_base, date,
-  "/graphs/clinical_dx_de_pmi_brain_bank_")
+  "/graphs/clinical_dx_lm_microglia")
 dir.create(dirname(out_table), recursive = TRUE)
 dir.create(dirname(out_graph), recursive = TRUE)
 print(out_graph)
@@ -65,15 +65,15 @@ main <- function() {
         clinical_dx = clinical_dx,
         region = region,
         cell_type = cell_type,
-        model_design = model_design_set2,
+        model_design = model_design_set3,
         down_sample_cells = 10000)
     lm_tb_set3 <- filter_and_format_lm_output(
-        lm_out_obj_l = lm_broom_set2, 
+        lm_out_obj_l = lm_broom_set3, 
         seurat_obj = so,
         clinical_dx = clinical_dx,
         region = region,
         cell_type = cell_type,
-        model_design = model_design_set2,
+        model_design = model_design_set3,
         beta_regex = "clinical_dx")
 
     precg_micro_bvftd <- so@meta.data %>%
@@ -177,9 +177,13 @@ filter_and_format_lm_output <- function(
         rownames
     seurat_obj <- subset(seurat_obj, cells = cell_id_subset)
   expr_m <- GetAssayData(seurat_obj, slot = "data")
+  is_ctrl <- seurat_obj@meta.data[["clinical_dx"]] == "Control"
+  is_dx <- seurat_obj@meta.data[["clinical_dx"]] != "Control"
+  expr_in_lmtb <- expr_m[lm_out_tb$gene, ]
+
   # percent of control cells expressing gene
-  lm_out_tb <- apply(expr_m, 1, function(row){
-      row_ctrl <- row[seurat_obj[["clinical_dx"]] == "Control"]
+  lm_out_tb <- future_apply(expr_in_lmtb, 1, function(row){
+      row_ctrl <- row[is_ctrl]
       percent_detected <- (sum(row_ctrl > 0) / length(row_ctrl)) * 100
       is.na(percent_detected) <- 0
       return(percent_detected)
@@ -188,10 +192,9 @@ filter_and_format_lm_output <- function(
     enframe(name = "gene", value = "percent_detected_ctrl") %>%
     right_join(., lm_out_tb)
   # percent of dx cells expressing gene
-  lm_out_tb <- apply(expr_m, 1, function(row){
-      row_dx <- row[seurat_obj[["clinical_dx"]] != "Control"]
-      percent_detected <- (
-        sum(row_dx > 0) / length(row_dx)) * 100
+  lm_out_tb <- future_apply(expr_in_lmtb, 1, function(row){
+      row_dx <- row[is_dx]
+      percent_detected <- (sum(row_dx > 0) / length(row_dx)) * 100
       is.na(percent_detected) <- 0
       return(percent_detected)
     }) %>%
@@ -246,7 +249,6 @@ filter_and_format_lm_output <- function(
   return(lm_out_tb)
 
 }
-
 
 wilcox_test_cols <- function(tb, group_name, test_list) {
     lapply(test_list, function(var_name) {
