@@ -102,6 +102,15 @@ main <- function() {
         })
     })
 
+    # partial models.
+    lm_pmi_age_site_sex_design <- "expression ~ pmi_h + age + finalsite + sex"
+    lm_pmi_age_site_sex_tb <- run_lm_de(mc_so, lm_pmi_age_site_sex_design, down_sample_cells = 10000) %>%
+        filter_and_format_lm_output(mc_so, lm_pmi_age_site_sex_design, beta_regex = "^[^(]")
+    
+    lm_pmi_pct_mito_design <- "expression ~ sex + finalsite + pmi_h + age + rin + percent_mito"
+    lm_pmi_pct_mito_tb <- run_lm_de(mc_so, lm_pmi_pct_mito_design, down_sample_cells = 10000) %>%
+        filter_and_format_lm_output(mc_so, lm_pmi_pct_mito_design, beta_regex = "^[^(]")
+
     precg_micro_bvftd <- mc_so@meta.data %>%
         as_tibble(rownames = "id")
 
@@ -129,6 +138,10 @@ main <- function() {
         writeLines(out_path)
         write_csv(tb, out_path)
     })
+
+    # dump partial models
+    write_csv(lm_pmi_age_site_sex_tb, str_glue("{out_table}_pmodel1.csv"))
+    write_csv(lm_pmi_pct_mito_tb, str_glue("{out_table}_pmodel2.csv"))
     
     # write metadata barplots
     pdf(paste0(out_graph, "meta_barplots.pdf"), width = 16, height = 8 * (length(meta_barplots) / 2))
@@ -256,9 +269,10 @@ filter_and_format_lm_output <- function(
       everything()) %>%
     clean_variable_names() %>%
     # order by log2 fold change
-    arrange(desc(estimate)) %>%
+    arrange(desc(estimate))
     # convert factors to characters
   # add additional columns
+  lm_out_tb[["model"]] <- model_design
 
   print("end of filter_and_format_lm_output")
 
