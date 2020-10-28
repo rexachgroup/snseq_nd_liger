@@ -90,19 +90,6 @@ main <- function() {
     lm_list <- run_lm_de(mc_so, model_design, down_sample_cells = 10000)
     lm_tb <- filter_and_format_lm_output(lm_list, mc_so, model_design, beta_regex = "clinical_dx") 
     
-    #     plan(sequential)
-    #     lm_mdl_objs <- run_lm_de(mc_so, model_design, 10000, ret_lm = TRUE)
-    #     plan(multicore)
-    # 
-    #     pdf("test.pdf")
-    #     lm_tb %>%
-    #         slice_min(pvalue, n = 10) %>%
-    #         pluck("gene") %>%
-    #         map(function(gene) {
-    #             autoplot(lm_mdl_objs[[gene]]) + ggtitle(gene)
-    #         })
-    #     dev.off()
-
     # per-variable models.
     test_vars <- c("sex", "finalsite", "pmi_h", "age", "rin", "prep", "number_genes")
     individual_vars <- map(test_vars, function(test_var) {
