@@ -105,20 +105,20 @@ run_lm_de <- function(
     cores = NULL){
  
     # Downsample if down_sample_cells defined.
-    if (!is.null(down_sample_cells) && ncol(so) > down_sample_cells) {
+    if (!is.null(down_sample_cells) && ncol(seurat_obj) > down_sample_cells) {
         writeLines(str_glue("downsampling to {down_sample_cells}"))
-        so <- subset(so, cells = sample(rownames(so), down_sample_cells))
-        so@meta.data %>%
-            select(region, clincal_dx, cluster_cell_type) %>% table %>% print
+        seurat_obj <- subset(seurat_obj, cells = sample(rownames(seurat_obj), down_sample_cells))
+        seurat_obj@meta.data %>%
+            select(region, clinical_dx, cluster_cell_type) %>% table %>% print
     }
 
-    expr_m <- GetAssayData(so, slot = "data")
+    expr_m <- GetAssayData(seurat_obj, slot = "data")
 
     # Convert model to formula.
     # Subset metadata to formula terms.
-    # If dx is present relevel so that control is the 1st factor level.
+    # If dx is present relevel seurat_obj that control is the 1st factor level.
     model <- as.formula(model_design)
-    test_vars <- so@meta.data %>%
+    test_vars <- seurat_obj@meta.data %>%
         select(all_of(attr(terms(model), "term.labels")))
 
     if ("clinical_dx" %in% colnames(test_vars)) {
