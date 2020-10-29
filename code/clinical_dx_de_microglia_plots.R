@@ -18,7 +18,7 @@ options(future.globals.maxSize = Inf)
 
 in_model <- "../analysis/clinical_dx_de_lme_microglia/20201026/tables/clinical_dx_de_lme_microglia_lm_tb.rds" 
 in_seurat_rds <-
-  "../analysis/pci_import/20201028/tables/pci_seurat.rds"
+  "../analysis/pci_import/pci_seurat.rds"
 
 out_graph <- file.path(dirname(in_model), "../graphs/")
 if (!dir.exists(out_graph)) dir.create(out_graph)
@@ -95,17 +95,23 @@ up_aveExpr_plots <- map(up_plot_tbs, function(up_tb) {
 up_ggplots <- map(up_plot_tbs, function(up_tb) {
         dx <- unique(up_tb$clinical_dx)
         title_str <- str_glue("LME of {dx[[1]]} v. {dx[[2]]} in PreCG microglia")
-        subtitle_str <- str_glue("expression of significant upregulated genes (beta > 0.1, t_statistic > 2) vs. metadata")
+        subtitle_str <- str_glue("expression of significant upregulated genes", 
+                                 "(beta > 0.1, t_statistic > 2) vs. metadata",
+                                 "{unique(lm_tb$model)}", .sep = "\n")
         plots <- map(plot_vars, function(plot_var) {
             plot_subset <- up_tb %>%
                 select("clinical_dx", "gene", "expr", {{plot_var}})
-            gg <- ggplot(plot_subset, aes_string(x = {{plot_var}}, y = "expr"))
-            if (is.numeric(plot_subset[[plot_var]]))
-                gg <- gg + geom_point(aes_string(color = "clinical_dx")) +
-                    geom_smooth(aes_string(group = "clinical_dx", fill = "clinical_dx"), method = "lm", se = FALSE)
+            if (is.numeric(plot_subset[[plot_var]])) {
+                gg <- ggplot(plot_subset, aes_string(x = {{plot_var}}, y = "expr")) + 
+                    geom_point(aes_string(color = "clinical_dx")) +
+                    geom_smooth(aes_string(group = "clinical_dx", fill = "clinical_dx", color = "clinical_dx"), method = "lm", se = FALSE)
+            }
             else
-                gg <- gg + geom_boxplot(aes_string(fill = "clinical_dx")) +
+                gg <- ggplot(plot_subset, aes_string(x = "clinical_dx", y = "expr", fill = "clinical_dx")) +
+                    geom_facet({{plot_var}}) +
+                    geom_boxplot(aes_string(fill = "clinical_dx", )) +
                     stat_compare_means(paired = FALSE)
+            return(gg)
         })
         wrap_plots(plots, ncol = 2) +
             plot_annotation(title = title_str, subtitle = subtitle_str)

@@ -19,7 +19,7 @@ options(future.globals.maxSize = Inf)
 # in_seurat_expr <- "../analysis/seurat/20200613/tables/seurat_FTD_control_preCG_microglia_expression_matrix.rdat"
 # in_seurat_meta <- "../analysis/seurat/20200613/tables/seurat_FTD_control_preCG_microglia_metadata.csv"
 in_seurat_rds <-
-  "../analysis/pci_import/20201028/tables/pci_seurat.rds"
+  "../analysis/pci_import/pci_seurat.rds"
 
 marker_genes_tb <- read_csv(
   "../resources/cluster_markers_mixed_20181019.csv")
@@ -69,7 +69,7 @@ main <- function() {
     
     # Run model.
     model_design <- "expression ~ clinical_dx + pmi + age + rin + sex + seq_batch + number_umi + percent_mito + Reads.Mapped.Antisense.to.Gene + Fraction.Reads.in.Cells + (1 | library_id)"
-    plan(multicore, workers = 6)
+    plan(multicore, workers = 12)
     lm_broom <- run_lmer_de(mc_so, model_design, down_sample_cells = 10000)
     print(sum(is.na(lm_broom)))
     plan(multicore)
@@ -81,7 +81,7 @@ main <- function() {
     saveRDS(lm_broom, paste0(dirname(out_table), "/lm.rds"))
     saveRDS(lm_tb, paste0(out_table, "lm_tb.rds"))
     write_csv(lm_tb, paste0(out_table, "lm_tb.csv"))
-c
+    
     lm_wider_spec <- build_wider_spec(lm_tb,
         names_from = "term",
         values_from = -c("gene", "model", "percent_detected_ctrl", "percent_detected_dx", "term"),
@@ -90,8 +90,7 @@ c
 
     lm_tb %>% 
         pivot_wider_spec(lm_wider_spec) %>%
-        write_csv(., paste0(out_table, "lm_wider_tb.csv"))
-    
+        write_csv(., paste0(out_table, "lm_wider_tb.csv"))    
 }
 
 
