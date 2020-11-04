@@ -1,18 +1,11 @@
 set.seed(27)
 require(Seurat)
-require(cowplot)
-require(viridis)
 require(tidyverse)
-require(RColorBrewer)
 require(future.apply)
-require(ggpubr)
-require(patchwork)
 require(lme4)
 require(lmerTest)
 require(broom.mixed)
-require(ComplexHeatmap)
 source("function_library.R")
-source("ggplot_theme.R")
 source("seurat_function_library.R")
 options(future.globals.maxSize = Inf)
 
@@ -21,30 +14,15 @@ options(future.globals.maxSize = Inf)
 in_seurat_rds <-
   "../analysis/pci_import/pci_seurat.rds"
 
-marker_genes_tb <- read_csv(
-  "../resources/cluster_markers_mixed_20181019.csv")
-marker_genes_refined_tb <- read_csv(
-  "../resources/20191028_cell_markers_refined.csv")
-in_exc_marker <- "../resources/excitatory_markers_20191023.csv"
-in_jessica_go_gene_list <- "../resources/20200607_jessica_input_up.txt"
-metadata_corrections_tb <- read_csv("../metadata/2020.06.13_corrected_metadata_jessica.csv")
-
-## Variables
 script_name <- "clinical_dx_de_microglia.R"
 date <- format(Sys.Date(), "%Y%m%d")
-graph_subtitle <- "P1-5"
 
 ## Outputs
 out_path_base <- "../analysis/clinical_dx_de_lme_microglia/"
 out_table <- paste0(
   out_path_base, date,
   "/tables/clinical_dx_de_lme_microglia_")
-out_graph <- paste0(
-  out_path_base, date,
-  "/graphs/clinical_dx_de_lme_microglia_")
 dir.create(dirname(out_table), recursive = TRUE)
-dir.create(dirname(out_graph), recursive = TRUE)
-print(out_graph)
 print(out_table)
 
 main <- function() {
@@ -78,7 +56,7 @@ main <- function() {
 
 
     # Write out lm_broom. Format and write out lm_tb.
-    saveRDS(lm_broom, paste0(dirname(out_table), "/lm.rds"))
+    saveRDS(lm_broom, paste0(out_table, "lm.rds"))
     saveRDS(lm_tb, paste0(out_table, "lm_tb.rds"))
     write_csv(lm_tb, paste0(out_table, "lm_tb.csv"))
     
@@ -111,7 +89,7 @@ run_lmer_de <- function(
     expr_m <- GetAssayData(seurat_obj, slot = "data")
 
     # Convert model to formula.
-    # If dx is present relevel seurat_obj that control is the 1st factor level.
+    # If dx is present relevel seurat_obj so that control is the 1st factor level.
     model <- as.formula(model_design)
     test_vars <- seurat_obj@meta.data
 
@@ -222,35 +200,6 @@ filter_and_format_lm_output <- function(
 
   return(lm_out_tb)
 
-}
-
-
-
-wilcox_test_cols <- function(tb, group_name, test_list) {
-    lapply(test_list, function(var_name) {
-        test_vec <- tb[[var_name]]
-        if (!is.numeric(test_vec)) {
-            test_vec <- as.numeric(factor(test_vec))
-            var_name <- paste0("as_numeric_", var_name)
-        }
-        group_vec <- tb[[group_name]]
-        out_tb <- broom::tidy(pairwise.wilcox.test(test_vec, group_vec, paired = FALSE))
-        out_tb$var <- var_name
-        return(out_tb)
-    }) %>% bind_rows()
-}
-
-ggplot_grouped_boxplot <- function(tb, x_name, var_list) {
-    return(lapply(var_list, function(var_name) {
-        ggplot(tb, aes_string(x = x_name, y = var_name, fill = x_name)) +
-            geom_boxplot() +
-            stat_compare_means(paired = FALSE) +
-            ggtitle(var_name)
-    }))
-}
-
-ggplot_heatmap_cluster <- function(tb_cor) {
-    
 }
 
 if (interactive()) {
