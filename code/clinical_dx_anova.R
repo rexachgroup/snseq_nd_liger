@@ -10,8 +10,6 @@ OUT_DIR <- "../analysis/clinical_dx_anova/"
 SUBCLUSTER_FILTER_FILE <- "../analysis/seurat_lchen/liger_subcluster_filtered_props.rds"
 if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR)
 
-#nd_so <- readRDS(in_seurat_rds)
-
 meta <- readRDS(META_FILE)
 percluster_tb <- readRDS(SUBCLUSTER_FILTER_FILE) %>% 
     filter(subcluster_3libs_above_10umi) %>%
@@ -34,7 +32,7 @@ library_subcluster_counts <- meta %>%
 pairwise_subsets <- function(factor_name, tb) {
     baselvl <- levels(tb[[factor_name]])[1]
     subsets <- lapply(levels(tb[[factor_name]])[-1], function(testlvl) {
-        intest <- tb[[factor_name]] == baselvl | tb[[factor_name]] == testlvl
+        intest <- (tb[[factor_name]] == baselvl) | (tb[[factor_name]] == testlvl)
         tb_subset <- tb[intest, ]
         tb_subset[[factor_name]] <- droplevels(tb_subset[[factor_name]]) 
         tb_subset[["subset"]] <- paste0(testlvl, factor_name)
@@ -43,26 +41,60 @@ pairwise_subsets <- function(factor_name, tb) {
     return(setNames(subsets, nm = levels(tb[[factor_name]])[-1]))
 }
 
+dx_splits <- list(
+    ad_v_ctl = c("AD", "Control"),
+    bvftd_v_ctl = c("bvFTD", "Control"),
+    psps_v_ctl = c("PSP-S", "Control"),
+    alldx_v_ctl = c(c("AD", "bvFTD", "PSP-S"), "Control"),
+    ad_v_all = c("AD", c("bvFTD", "PSP-S", "Control")),
+    bvftd_v_all = c("bvFTD", c("AD", "PSP-S", "Control")),
+    psps_v_all = c("PSP-S", c("AD", "bvFTD", "Control"))
+)
+
+dx_contrast_list <- cbind(
+    ad_v_ctl = c(-1, 1, 0, 0), # ad vs. ctl
+    bvftd_v_ctl = c(-1, 0, 1, 0), # bvftd vs. ctl
+    psps_v_ctl = c(-1, 0, 0, 1), # psp-s vs. ctl
+    alldx_v_ctl = c(-1, 1/3, 1/3, 1/3), # all dx vs. ctl
+    ad_v_all = c(-1/3, 1, -1/3, -1/3), # ad vs. all
+    bvftd_v_all = c(-1/3, -1/3, 1, -1/3), # bvftd vs. all
+    psps_v_all = c(-1/3, -1/3, -1/3, 1) # psp-s vs. all 
+)
+
+# because I can't figure out how contrasts work, we're subsetting by each of the dx splits.
+generate_group_splits <- function(factor_name, factor_split_list, tb) {
+    imap(factor_split_list, function(split, split_name) {
+        group1 <- split[[1]]
+        group2 <- split[[2]]
+        group1_rows <- tb[[factor_name]] %in% group1
+        group2_rows <- tb[[factor_name]] %in% group2
+        tb[["group"]] <- split_name
+        tb$group_split <- vector(length = nrow(tb))
+        tb$group_split[group1_rows] <- 1
+        tb$group_split[group2_rows] <- 0
+        return(tb[group1_rows | group2_rows, ])
+    })
+}
+
 aov_dx_subsets <- function(tb, aov_form) {
     tb %>% 
     group_by(ct_subcluster) %>%
     group_nest(keep = TRUE) %>%
     mutate(
         dx_subsets = map(data, function(tb) {
-            aov_dx_subsets <- pairwise_subsets("clinical_dx", tb)
+            aov_dx_subsets <- generate_group_splits("clinical_dx", dx_splits, tb)
             aov_dx_subsets[lapply(aov_dx_subsets, nrow) > 0] %>%
                 map(function(dxtb) {
-                    if (length(levels(dxtb$clinical_dx)) == 2) {
-                        aov(as.formula(aov_form), dxtb)
-                    }
+                    lm(as.formula(aov_form), dxtb)
                 })
         }),
-        aov_tidy = map(dx_subsets, function(aov_list) {
-            valid_aov <- map_lgl(aov_list, ~!is.null(.))
-            if (any(valid_aov))
-                aov_list[valid_aov] %>%
+        aov_tidy = map(dx_subsets, function(lm_list) {
+            valid_lm <- map_lgl(lm_list, ~!is.null(.))
+            if (any(valid_lm))
+                lm_list[valid_lm] %>%
+                    map(aov) %>%
                     map(tidy) %>%
-                    bind_rows(.id = "dx") %>%
+                    bind_rows(.id = "group") %>%
                     pivot_wider(
                         names_from = "term",
                         values_from = c("df", "sumsq", "meansq", "statistic", "p.value")
@@ -85,7 +117,7 @@ library_pct <- inner_join(library_subcluster_counts, library_celltype_counts_ful
     mutate(subcluster_pct_norm = subcluster_ct / cluster_ct) %>%
     glimpse()
 
-aov_form <- "subcluster_pct_norm ~ clinical_dx"
+aov_form <- "subcluster_pct_norm ~ group_split"
 library_cell_counts_anova <- aov_dx_subsets(library_pct, aov_form)
     
 
@@ -102,7 +134,6 @@ library_pct_filter <- inner_join(library_subcluster_counts, library_celltype_cou
     mutate(subcluster_pct_norm = subcluster_ct / cluster_ct) %>%
     glimpse()
 
-aov_form <- "subcluster_pct_norm ~ clinical_dx"
 library_cell_counts_anova_filter <- aov_dx_subsets(library_pct_filter, aov_form)
 
 # 3. Output
