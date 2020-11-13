@@ -1,7 +1,7 @@
 # Lawrence Chen 2020-11-03
 # anova on cell proportion changes in all data.
 
-liblist <- c("tidyverse", "broom")
+liblist <- c("multcomp", "tidyverse", "broom", "patchwork")
 lapply(liblist, require, character.only = TRUE)
 
 #in_seurat_rds <- "../analysis/pci_import/20201028/tables/pci_seurat.rds"
@@ -29,29 +29,17 @@ library_subcluster_counts <- meta %>%
     summarize(cell_type = unique(cell_type), clinical_dx = unique(clinical_dx), subcluster_ct = n()) %>%
     print(n = 50)
 
-pairwise_subsets <- function(factor_name, tb) {
-    baselvl <- levels(tb[[factor_name]])[1]
-    subsets <- lapply(levels(tb[[factor_name]])[-1], function(testlvl) {
-        intest <- (tb[[factor_name]] == baselvl) | (tb[[factor_name]] == testlvl)
-        tb_subset <- tb[intest, ]
-        tb_subset[[factor_name]] <- droplevels(tb_subset[[factor_name]]) 
-        tb_subset[["subset"]] <- paste0(testlvl, factor_name)
-        return(tb_subset)
-    })
-    return(setNames(subsets, nm = levels(tb[[factor_name]])[-1]))
-}
-
 dx_splits <- list(
-    ad_v_ctl = c("AD", "Control"),
-    bvftd_v_ctl = c("bvFTD", "Control"),
-    psps_v_ctl = c("PSP-S", "Control"),
-    alldx_v_ctl = c(c("AD", "bvFTD", "PSP-S"), "Control"),
-    ad_v_all = c("AD", c("bvFTD", "PSP-S", "Control")),
-    bvftd_v_all = c("bvFTD", c("AD", "PSP-S", "Control")),
-    psps_v_all = c("PSP-S", c("AD", "bvFTD", "Control"))
+    ad_v_ctl = list("AD", "Control"),
+    bvftd_v_ctl = list("bvFTD", "Control"),
+    psps_v_ctl = list("PSP-S", "Control"),
+    alldx_v_ctl = list(c("AD", "bvFTD", "PSP-S"), "Control"),
+    ad_v_all = list("AD", c("bvFTD", "PSP-S", "Control")),
+    bvftd_v_all = list("bvFTD", c("AD", "PSP-S", "Control")),
+    psps_v_all = list("PSP-S", c("AD", "bvFTD", "Control"))
 )
 
-dx_contrast_list <- cbind(
+dx_contrast_mat <- cbind(
     ad_v_ctl = c(-1, 1, 0, 0), # ad vs. ctl
     bvftd_v_ctl = c(-1, 0, 1, 0), # bvftd vs. ctl
     psps_v_ctl = c(-1, 0, 0, 1), # psp-s vs. ctl
@@ -61,6 +49,17 @@ dx_contrast_list <- cbind(
     psps_v_all = c(-1/3, -1/3, -1/3, 1) # psp-s vs. all 
 )
 
+#contrast_obj <- mcp(clinical_dx = dx_contrast_mat[, 1])
+contrast_obj <- mcp(clinical_dx = c(
+    ad_v_ctl = "AD - Control == 0",
+    bvftd_v_ctl = "bvFTD - Control == 0",
+    psps_v_ctl = "`PSP-S` - Control == 0",
+    alldx_v_ctl = "(AD + bvFTD + `PSP-S`)/3 - Control == 0",
+    ad_v_all = "AD - (bvFTD + `PSP-S` + Control)/3 == 0",
+    bvftd_v_all = "bvFTD - (AD + `PSP-S` + Control)/3 == 0",
+    psps_v_all = "`PSP-S` - (AD + bvFTD + Control)/3 == 0"
+))
+
 # because I can't figure out how contrasts work, we're subsetting by each of the dx splits.
 generate_group_splits <- function(factor_name, factor_split_list, tb) {
     imap(factor_split_list, function(split, split_name) {
@@ -68,11 +67,14 @@ generate_group_splits <- function(factor_name, factor_split_list, tb) {
         group2 <- split[[2]]
         group1_rows <- tb[[factor_name]] %in% group1
         group2_rows <- tb[[factor_name]] %in% group2
-        tb[["group"]] <- split_name
-        tb$group_split <- vector(length = nrow(tb))
-        tb$group_split[group1_rows] <- 1
-        tb$group_split[group2_rows] <- 0
-        return(tb[group1_rows | group2_rows, ])
+        subset_tb <- tb[group1_rows | group2_rows, ]
+
+        subset_tb <- subset_tb %>%
+            mutate(
+                group = split_name,
+                group_split = ifelse(.data[[factor_name]] %in% group1, 1, ifelse(.data[[factor_name]] %in% group2, 0, NA))
+            )
+        return(subset_tb)
     })
 }
 
@@ -89,10 +91,8 @@ aov_dx_subsets <- function(tb, aov_form) {
                 })
         }),
         aov_tidy = map(dx_subsets, function(lm_list) {
-            valid_lm <- map_lgl(lm_list, ~!is.null(.))
-            if (any(valid_lm))
-                lm_list[valid_lm] %>%
-                    map(aov) %>%
+                lm_list %>%
+                    map(anova) %>%
                     map(tidy) %>%
                     bind_rows(.id = "group") %>%
                     pivot_wider(
@@ -100,12 +100,13 @@ aov_dx_subsets <- function(tb, aov_form) {
                         values_from = c("df", "sumsq", "meansq", "statistic", "p.value")
                     ) %>%
                     glimpse
-        })
+        }),
+        aov_form = {{aov_form}}
     ) %>%
     unnest(aov_tidy)
 }
 
-# 1. Count all cells for the seurat cell type
+# 1. Count percentages cells for the seurat cell type
 
 library_celltype_counts_full <- meta %>%
     filter(cluster_cell_type == cell_type) %>%
@@ -118,10 +119,10 @@ library_pct <- inner_join(library_subcluster_counts, library_celltype_counts_ful
     glimpse()
 
 aov_form <- "subcluster_pct_norm ~ group_split"
-library_cell_counts_anova <- aov_dx_subsets(library_pct, aov_form)
+library_cell_pct_anova <- aov_dx_subsets(library_pct, aov_form)
     
 
-# 2. Count cells for the seurat cell type after filtering subclusters
+# 2. Count percentages for the seurat cell type after filtering subclusters
 
 library_celltype_counts_filter <- meta %>%
     filter(cluster_cell_type == cell_type) %>%
@@ -134,18 +135,62 @@ library_pct_filter <- inner_join(library_subcluster_counts, library_celltype_cou
     mutate(subcluster_pct_norm = subcluster_ct / cluster_ct) %>%
     glimpse()
 
-library_cell_counts_anova_filter <- aov_dx_subsets(library_pct_filter, aov_form)
+library_cell_pct_anova_filter <- aov_dx_subsets(library_pct_filter, aov_form)
 
-# 3. Output
+
+# 3. glht contrast testing
+
+library_pct_glht <- library_pct_filter %>% group_by(ct_subcluster) %>%
+    group_nest() %>%
+    mutate(
+        aov_objs = map(data, ~aov(as.formula("subcluster_pct_norm ~ clinical_dx"), .)),
+        glht_objs = map(aov_objs, ~glht(., linfct = contrast_obj)),
+        glht_tidy = map(glht_objs, tidy)
+    )
+
+# 4. data with subcluster counts 
+library_cell_ct_anova <- aov_dx_subsets(library_pct_filter, "subcluster_ct ~ group_split")
+
+# 5. ggplot count distribution
+library_pct_patchwork <- library_pct_filter %>%
+    group_by(ct_subcluster) %>%
+    group_split() %>%
+    map(~ggplot(data = ., aes(x = clinical_dx, y = subcluster_pct_norm, color = clinical_dx)) + geom_boxplot() + ggtitle(unique(.$ct_subcluster)))
+    
+library_ct_patchwork <- library_pct_filter %>%
+    group_by(ct_subcluster) %>%
+    group_split() %>%
+    map(~ggplot(data = ., aes(x = clinical_dx, y = subcluster_ct, color = clinical_dx)) + geom_boxplot() + ggtitle(unique(.$ct_subcluster)))
+
+# Output
 write_csv(library_celltype_counts_full, file.path(OUT_DIR, "library_celltype_counts_full.csv"))
 write_csv(library_celltype_counts_filter, file.path(OUT_DIR, "library_celltype_counts_filter.csv"))
 
-saveRDS(library_cell_counts_anova, file.path(OUT_DIR, "library_cell_counts_anova.rds"))
-library_cell_counts_anova %>%
-    select(-data, -dx_subsets) %>%
-    write_csv(file.path(OUT_DIR, "library_cell_counts_anova.csv"))
+saveRDS(library_cell_pct_anova, file.path(OUT_DIR, "library_cell_pct_anova.rds"))
+library_cell_pct_anova %>%
+    dplyr::select(-data, -dx_subsets) %>%
+    write_csv(file.path(OUT_DIR, "library_cell_pct_anova.csv"))
 
-saveRDS(library_cell_counts_anova_filter, file.path(OUT_DIR, "library_cell_counts_anova_filter.rds"))
-library_cell_counts_anova_filter %>%
-    select(-data, -dx_subsets) %>%
-    write_csv(file.path(OUT_DIR, "library_cell_counts_anova_filter.csv"))
+saveRDS(library_cell_pct_anova_filter, file.path(OUT_DIR, "library_cell_pct_anova_filter.rds"))
+library_cell_pct_anova_filter %>%
+    dplyr::select(-data, -dx_subsets) %>%
+    write_csv(file.path(OUT_DIR, "library_cell_pct_anova_filter.csv"))
+
+saveRDS(library_pct_glht, file.path(OUT_DIR, "library_pct_glht.rds"))
+library_pct_glht %>%
+    dplyr::select(ct_subcluster, glht_tidy) %>%
+    unnest(glht_tidy) %>%
+    write_csv(file.path(OUT_DIR, "library_pct_glht.csv"))
+
+saveRDS(library_cell_ct_anova, file.path(OUT_DIR, "library_cell_ct_anova.rds"))
+library_cell_ct_anova %>%
+    dplyr::select(-data, -dx_subsets) %>%
+    write_csv(file.path(OUT_DIR, "library_cell_ct_anova.csv"))
+
+pdf(file.path(OUT_DIR, "library_cell_pct_boxplot.pdf"), width = 5, height = 5)
+tryCatch(print(library_pct_patchwork))
+dev.off()
+
+pdf(file.path(OUT_DIR, "library_cell_ct_boxplot.pdf"), width = 5, height = 5)
+tryCatch(print(library_ct_patchwork))
+dev.off()
