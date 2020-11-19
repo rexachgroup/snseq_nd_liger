@@ -6,7 +6,7 @@ lapply(liblist, require, character.only = TRUE)
 
 #in_seurat_rds <- "../analysis/pci_import/20201028/tables/pci_seurat.rds"
 META_FILE <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
-OUT_DIR <- "../.../analysis/clinical_dx_anova/"
+OUT_DIR <- "../../analysis/seurat_lchen/subcluster_composition/anova/"
 SUBCLUSTER_FILTER_FILE <- "../../analysis/seurat_lchen/liger_subcluster_filtered_props.rds"
 if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR)
 
