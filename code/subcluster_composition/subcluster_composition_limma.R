@@ -24,6 +24,7 @@ library_subcluster_counts <- meta %>%
            ct_subcluster %in% ctl_filter$ct_subcluster) %>%
     group_by(region, library_id, ct_subcluster) %>%
     summarize(cell_type = unique(cell_type), 
+              liger_cluster = unique(liger_clusters),
               subcluster_ct = n())
 
 library_celltype_counts_full <- meta %>%
@@ -96,8 +97,18 @@ limma_mutate <- function(tb, form) {
     })) %>%
     mutate(
         limma_pval = map(limma, function(limma) {
-            dx_bayes <- eBayes(limma)
-            dx_bayes$p.value %>%
+            tryCatch({
+                dx_bayes <- eBayes(limma)
+                dx_bayes$p.value %>%
+                    as.data.frame %>%
+                    rename_with(function(x) paste0("pval", x), everything()) %>%
+                    as_tibble(rownames = "ct_subcluster")
+            }, error = function(x) NA)
+        }),
+        limma_beta = map(limma, function(limma) {
+            limma$coefficients %>%
+                as.data.frame %>%
+                rename_with(function(x) paste0("beta", x), everything()) %>%
                 as_tibble(rownames = "ct_subcluster")
         }),
         formula = form
@@ -114,111 +125,111 @@ dx_splits <- list(
     psps_v_all = list("PSP-S", c("AD", "bvFTD", "Control"))
 )
 
-generate_group_splits <- function(factor_name, factor_split_list, tb) {
-    imap(factor_split_list, function(split, split_name) {
-        group1 <- split[[1]]
-        group2 <- split[[2]]
-        group1_rows <- tb[[factor_name]] %in% group1
-        group2_rows <- tb[[factor_name]] %in% group2
-        subset_tb <- tb[group1_rows | group2_rows, ]
-
-        subset_tb <- subset_tb %>%
-            mutate(
-                group = split_name,
-                group_split = ifelse(.data[[factor_name]] %in% group1, 1, ifelse(.data[[factor_name]] %in% group2, 0, NA))
-            )
-        return(subset_tb)
-    })
-}
-
-limma_mutate_split <- function(tb, form) { 
-    tb <- tb %>%
-    filter(map_lgl(matrix, ~nrow(.) > 2)) %>%
-    mutate(limma = pmap(list(data, matrix), function(data, matrix){
-        data_subsets <- generate_group_splits("clinical_dx", dx_splits, data)
-
-        data_subsets[lapply(data_subsets, nrow) > 0] %>%
-            map(function(data_subset) {
-                dxtb <- data_subset %>% group_by(library_id) %>%
-                    summarize(
-                        dx = make.names(unique(clinical_dx)),
-                        group_split = unique(group_split),
-                        pmi = unique(pmi),
-                        log_pmi = unique(log_pmi),
-                        sex = unique(sex),
-                        age = unique(age),
-                        mean_percent_mito = unique(mean_percent_mito),
-                        median_genes = unique(median_genes),
-                        .groups = "drop"
-                    )
-                dxmatrix <- matrix[, dxtb$library_id]
-                
-                dx_fit <- NA
-                tryCatch({
-                    dgelist <- DGEList(dxmatrix)
-                    dgelist_norm <- calcNormFactors(dgelist, method = "TMM")
-                    design  <- model.matrix(as.formula(form), data = dxtb) 
-                    elist_voom <- voom(dgelist_norm, design)
-                    dx_fit <- suppressWarnings(lmFit(elist_voom, design))
-                }, 
-                error = function(x) {},
-                warning = function(x) {},
-                finally = return(dx_fit))
-            })
-    }))
-    tb <- tb %>%
-    mutate(
-        limma_pval = map(limma, function(limma_list) {
-            tryCatch({
-            pval_list <- map(limma_list, function(lim) {
-                dx_bayes <- eBayes(lim)
-                dx_bayes$p.value %>%
-                    as_tibble(rownames = "ct_subcluster") %>%
-                    rename(group_split_pval = group_split)
-            })
-
-            pval_list[!is.na(pval_list)] %>%
-                bind_rows(.id = "group_split_name")
-            }, error = function(x) {})
-        }),
-        formula = form
-    )
-}
+# generate_group_splits <- functi(factor_name, factor_split_list, tb) {
+#     imap(factor_split_list, function(split, split_name) {
+#         group1 <- split[[1]]
+#         group2 <- split[[2]]
+#         group1_rows <- tb[[factor_name]] %in% group1
+#         group2_rows <- tb[[factor_name]] %in% group2
+#         subset_tb <- tb[group1_rows | group2_rows, ]
+# 
+#         subset_tb <- subset_tb %>%
+#             mutate(
+#                 group = split_name,
+#                 group_split = ifelse(.data[[factor_name]] %in% group1, 1, ifelse(.data[[factor_name]] %in% group2, 0, NA))
+#             )
+#         return(subset_tb)
+#     })
+# }
+# 
+# limma_mutate_split <- function(tb, form) { 
+#     tb <- tb %>%
+#     filter(map_lgl(matrix, ~nrow(.) > 2)) %>%
+#     mutate(limma = pmap(list(data, matrix), function(data, matrix){
+#         data_subsets <- generate_group_splits("clinical_dx", dx_splits, data)
+# 
+#         data_subsets[lapply(data_subsets, nrow) > 0] %>%
+#             map(function(data_subset) {
+#                 dxtb <- data_subset %>% group_by(library_id) %>%
+#                     summarize(
+#                         dx = make.names(unique(clinical_dx)),
+#                         group_split = unique(group_split),
+#                         pmi = unique(pmi),
+#                         log_pmi = unique(log_pmi),
+#                         sex = unique(sex),
+#                         age = unique(age),
+#                         mean_percent_mito = unique(mean_percent_mito),
+#                         median_genes = unique(median_genes),
+#                         .groups = "drop"
+#                     )
+#                 dxmatrix <- matrix[, dxtb$library_id]
+#                 
+#                 dx_fit <- NA
+#                 tryCatch({
+#                     dgelist <- DGEList(dxmatrix)
+#                     dgelist_norm <- calcNormFactors(dgelist, method = "TMM")
+#                     design  <- model.matrix(as.formula(form), data = dxtb) 
+#                     elist_voom <- voom(dgelist_norm, design)
+#                     dx_fit <- suppressWarnings(lmFit(elist_voom, design))
+#                 }, 
+#                 error = function(x) {},
+#                 warning = function(x) {},
+#                 finally = return(dx_fit))
+#             })
+#     }))
+#     tb <- tb %>%
+#     mutate(
+#         limma_pval = map(limma, function(limma_list) {
+#             tryCatch({
+#             pval_list <- map(limma_list, function(lim) {
+#                 dx_bayes <- eBayes(lim)
+#                 dx_bayes$p.value %>%
+#                     as_tibble(rownames = "ct_subcluster") %>%
+#                     rename(group_split_pval = group_split)
+#             })
+# 
+#             pval_list[!is.na(pval_list)] %>%
+#                 bind_rows(.id = "group_split_name")
+#             }, error = function(x) {})
+#         }),
+#         formula = form
+#     )
+# }
 
 
 summarize_limma <- function(tb) {
     tb %>%
-        unnest(limma_pval) %>%
-        group_by(region) %>%
-        summarize(across(matches("dx"), function(x) sum(!is.na(x) & x < 0.05))) %>%
-        pivot_longer(cols = -region) %>%
-        print(n = Inf, width = Inf)
+        filter(!is.na(limma_pval)) %>%
+        mutate(limma_cmb = pmap(list(limma_beta, limma_pval), ~inner_join(.x, .y, by = "ct_subcluster"))) %>%
+        unnest(limma_cmb) %>%
+        glimpse
 }
 
 write_limma <- function(tb, path) {
     tb %>% 
-        unnest(limma_pval) %>%
-        select(-data, -matrix, -limma) %>%
+        filter(!is.na(limma_pval)) %>%
+        mutate(limma_cmb = pmap(list(limma_beta, limma_pval), ~inner_join(.x, .y, by = "ct_subcluster"))) %>%
+        unnest(limma_cmb) %>%
+        select(-data, -matrix, -limma, -limma_pval, -limma_beta) %>%
         write_tsv(path)
 }
 
 
-limma_dx <- limma_mutate(library_cluster_mats, form = "~0 + dx")
-limma_dx_log_pmi <- limma_mutate(library_cluster_mats, form = "~0 + dx + log_pmi + age + sex + mean_percent_mito + median_genes")
+#limma_dx <- limma_mutate(library_cluster_mats, form = "~0 + dx")
+#limma_dx_log_pmi <- limma_mutate(library_cluster_mats, form = "~0 + dx + log_pmi + age + sex + mean_percent_mito + median_genes")
 limma_dx_pmi <- limma_mutate(library_cluster_mats, form = "~0 + dx + pmi + age + sex + mean_percent_mito + median_genes")
-limma_dx_split <- limma_mutate_split(library_cluster_mats, form = "~0 + group_split")
+#limma_dx_split <- limma_mutate_split(library_cluster_mats, form = "~0 + group_split")
 
-summarize_limma(limma_dx)
-summarize_limma(limma_dx_log_pmi)
+# summarize_limma(limma_dx)
+# summarize_limma(limma_dx_log_pmi)
 summarize_limma(limma_dx_pmi)
-summarize_limma(limma_dx_split, regex = "_v_")
 
-write_limma(limma_dx, file.path(OUT_DIR, "subcluster_composition_dx.tsv"))
-write_limma(limma_dx_log_pmi, file.path(OUT_DIR, "subcluster_composition_dx_log_pmi.tsv"))
+# write_limma(limma_dx, file.path(OUT_DIR, "subcluster_composition_dx.tsv"))
+# write_limma(limma_dx_log_pmi, file.path(OUT_DIR, "subcluster_composition_dx_log_pmi.tsv"))
 write_limma(limma_dx_pmi, file.path(OUT_DIR, "subcluster_composition_dx_pmi.tsv"))
-write_limma(limma_dx_split, file.path(OUT_DIR, "subcluster_composition_dx_split.tsv"))
+#write_limma(limma_dx_split, file.path(OUT_DIR, "subcluster_composition_dx_split.tsv"))
 
-saveRDS(limma_dx, file.path(OUT_DIR, "subcluster_composition_dx.rds"))
-saveRDS(limma_dx_log_pmi, file.path(OUT_DIR, "subcluster_composition_dx_log_pmi.rds"))
+# saveRDS(limma_dx, file.path(OUT_DIR, "subcluster_composition_dx.rds"))
+# saveRDS(limma_dx_log_pmi, file.path(OUT_DIR, "subcluster_composition_dx_log_pmi.rds"))
 saveRDS(limma_dx_pmi, file.path(OUT_DIR, "subcluster_composition_dx_pmi.rds"))
 
