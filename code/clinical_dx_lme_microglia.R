@@ -5,8 +5,6 @@ require(future.apply)
 require(lme4)
 require(lmerTest)
 require(broom.mixed)
-source("function_library.R")
-source("seurat_function_library.R")
 options(future.globals.maxSize = Inf)
 
 # in_seurat_expr <- "../analysis/seurat/20200613/tables/seurat_FTD_control_preCG_microglia_expression_matrix.rdat"
@@ -120,7 +118,7 @@ filter_and_format_lm_output <- function(
     beta_regex,
     percent_detected_filter = 0){
 
-  print("filter_and_format_lm_output")
+    print("filter_and_format_lm_output")
 
     clinical_dx <- unique(seurat_obj[["clinical_dx"]])
     region <- unique(seurat_obj[["region"]])
@@ -166,18 +164,14 @@ filter_and_format_lm_output <- function(
         filter(percent_detected_dx > percent_detected_filter | percent_detected_ctrl > percent_detected_filter)
     print(paste0("number of genes after percent detected filter: ", nrow(lm_out_tb)))
 
-  # add ensembl
-  #   lm_out_tb$ensembl <- convert_gene_symbols_to_ensembl_ids(
-  #     gene_symbols = lm_out_tb$gene)
+    # fdr_pvalue correct
+    lm_out_tb$fdr_pvalue <- p.adjust(lm_out_tb$p.value, method = "BH")
+    # check
+    table(lm_out_tb$p.value < 0.05) %>% print()
+    table(lm_out_tb$fdr_pvalue < 0.05) %>% print()
 
-  # fdr_pvalue correct
-  lm_out_tb$fdr_pvalue <- p.adjust(lm_out_tb$p.value, method = "BH")
-  # check
-  table(lm_out_tb$p.value < 0.05) %>% print()
-  table(lm_out_tb$fdr_pvalue < 0.05) %>% print()
-
-  # formating
-  lm_out_tb <- lm_out_tb %>%
+    # formating
+    lm_out_tb <- lm_out_tb %>%
     # order columns
     dplyr::select(
       gene,
@@ -189,16 +183,15 @@ filter_and_format_lm_output <- function(
       pvalue = p.value,
       fdr_pvalue,
       everything()) %>%
-    clean_variable_names() %>%
     # order by log2 fold change
     arrange(desc(estimate))
     # convert factors to characters
-  # add additional columns
-  lm_out_tb[["model"]] <- model_design
+    # add additional columns
+    lm_out_tb[["model"]] <- model_design
 
-  print("end of filter_and_format_lm_output")
+    print("end of filter_and_format_lm_output")
 
-  return(lm_out_tb)
+    return(lm_out_tb)
 
 }
 
