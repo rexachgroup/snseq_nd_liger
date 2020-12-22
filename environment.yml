@@ -15,6 +15,5 @@ dependencies:
   - r-ggally
   - r-lmertest
   - r-broom.mixed
-  - local/linux-64::r-nestedrankstest==0.2=r36_0
   - r-ggfortify
 prefix: /home/lchen/nucseq_nd_dpolioud/conda
