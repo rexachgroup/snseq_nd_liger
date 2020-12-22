@@ -75,3 +75,4 @@ nd_so@meta.data <- meta_parse_fix %>%
     column_to_rownames("rownames")
 
 saveRDS(nd_so, file.path(out_table, "pci_seurat.rds"), compress = FALSE)
+saveRDS(meta_parse_fix, file.path(out_table, "pci_seurat_meta.rds"), compress = FALSE)
