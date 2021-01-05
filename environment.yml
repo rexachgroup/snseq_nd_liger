@@ -16,4 +16,9 @@ dependencies:
   - r-lmertest
   - r-broom.mixed
   - r-ggfortify
+  - bioconductor-edger
+  - r-liger=0.4.2.9000
+  - r-batchtools
+  - bioconductor-variancepartition
+  - r-matrix=1.2_18
 prefix: /home/lchen/nucseq_nd_dpolioud/conda
