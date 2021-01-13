@@ -67,7 +67,7 @@ resample_meta <- function(meta, ntests = 5, nsize = floor(nrow(meta) * 0.8), cel
 # Worker function: subset sobj to this instance's cell_ids, then convert to liger object and run clustering
 liger_cluster_sobj <- function(cell_ids, filepath, liblist) {
     k <- 20
-    lambda <- 1
+    lambda <- 0.5
 
     stopifnot("Duplicate cell ids cause errors in seuratToLiger -- don't use bootstrapping"=any(!duplicated(cell_ids)))
     l <- lapply(liblist, require, character.only = TRUE)
