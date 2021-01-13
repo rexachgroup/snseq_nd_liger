@@ -9,6 +9,7 @@ in_clusters <- "../../analysis/seurat_lchen/cluster_repl/reclusters.rds"
 in_batchtools <- "../../analysis/seurat_lchen/cluster_repl/batchtools/"
 out_jaccard <- "../../analysis/seurat_lchen/cluster_repl/recluster_jaccard.csv"
 out_jaccard_raw <- "../../analysis/seurat_lchen/cluster_repl/recluster_jaccard_raw.csv"
+out_jaccard_plot <- "../../analysis/seurat_lchen/cluster_repl/recluster_jaccard.pdf"
 in_subcluster_wk <- "../../analysis/seurat_lchen/cluster_repl/subcluster_resamples.rds"
 
 main <- function() {
@@ -41,7 +42,6 @@ main <- function() {
             map(liger_clustering, function(x) {calc_liger_jacc_index(data, x)})
         }))
 
-
     jacc_unnest <- subcluster_tbs %>%
         select(-data, -liger_clustering) %>%
         unnest(c(jaccard_index, job_id)) %>%
@@ -54,6 +54,12 @@ main <- function() {
 
     write_csv(jacc_unnest, out_jaccard_raw)
     write_csv(jaccard_max, out_jaccard)
+
+    jacc_plot <- ggplot(jacc_unnest, aes(x = orig_cluster, y = subs_cluster, fill = jaccard_index)) +
+        geom_tile() +
+        scale_fill_gradient(low = "white", high = "red") +
+        ggtitle(paste(unique(jacc_unnest$region), unique(jacc_unnest$cluster_cell_type), "jaccard index of reclustering on Orion \n vs. original liger clsutering"))
+    ggsave(out_jaccard_plot, jacc_plot, height = 10, width = 10)
 }
 
 extract_liger_reg <- function(job.id, reg = getDefaultRegistry()) {
