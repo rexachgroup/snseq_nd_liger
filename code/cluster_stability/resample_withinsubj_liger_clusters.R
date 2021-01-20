@@ -12,11 +12,16 @@ dir.create(out_path_base)
 batchtools <- file.path(out_path_base, "batchtools")
 
 RESOURCES <- list(
-    ncpus = 16,
+    ncpus = 8,
     memory = 64,
     walltime = 36000,
     measure.memory = TRUE
 )
+
+k <- 20
+lambda <- 0.5
+nprop <- 0.8
+iter <- 5
 
 main <- function() {
     if (dir.exists(batchtools)) {
@@ -29,7 +34,7 @@ main <- function() {
 
     meta_subset <- meta %>% 
         mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-")) %>%
-        filter((region == "preCG" & cluster_cell_type == "microglia") )
+        filter((region == "preCG" & cluster_cell_type == "microglia") | (region == "insula" & cluster_cell_type == "excitatory"))
     
     subcluster_tbs <- meta_subset %>%
         group_by(region, cluster_cell_type) %>%
@@ -37,10 +42,13 @@ main <- function() {
 
     subcluster_wk <- subcluster_tbs %>%
         mutate(resample_cellids = map(data, function(data) {
-            resample_subj(data, 5)
+            resample_subj(data, iter, nprop)
         })) %>%
         unnest(resample_cellids)
     
+    subcluster_wk$k <- k
+    subcluster_wk$lambda <- lambda
+    subcluster_wk$nprop <- nprop 
     clearRegistry()
     ids <- batchMap(liger_cluster_sobj, 
         args = list(
@@ -48,13 +56,15 @@ main <- function() {
             data = subcluster_wk$data
         ), 
         more.args = list(
-            liblist = liblist
+            liblist = liblist,
+            k = k,
+            lambda = lambda
         ))
     subcluster_wk$job.id <- getJobTable()$job.id
     submitJobs(ids, resources = RESOURCES)
-    waitForJobs()
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_resamples.rds"))
-}
+    waitForJobs()
+e
  
 resample_subj <- function(meta, ntests = 5, nprop = 0.8, cell_id_col = "cell_ids") {
     set.seed(1)
@@ -68,10 +78,8 @@ resample_subj <- function(meta, ntests = 5, nprop = 0.8, cell_id_col = "cell_ids
 }
 
 # Worker function: subset sobj to this instance's cell_ids, then convert to liger object and run clustering
-liger_cluster_sobj <- function(cell_ids, data, liblist) {
+liger_cluster_sobj <- function(cell_ids, data, liblist, k = NULL, lambda = NULL) {
     filepath <- unique(data$filepath)
-    k <- 20
-    lambda <- 1
 
     stopifnot("Duplicate cell ids cause errors in seuratToLiger -- don't use bootstrapping"=any(!duplicated(cell_ids)))
     l <- lapply(liblist, require, character.only = TRUE)
@@ -79,6 +87,8 @@ liger_cluster_sobj <- function(cell_ids, data, liblist) {
     envdata <- new.env()
     load(file.path("..", filepath), envdata) 
     subset_sobj <- subset(envdata$liger_so, cells = cell_ids)
+    rm(envdata)
+    gc()
 
     lo <- seuratToLiger(subset_sobj,
         combined.seurat = TRUE, names = "use-meta",
