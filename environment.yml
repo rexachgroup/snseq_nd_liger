@@ -1,24 +1,24 @@
-name: /home/lchen/nucseq_nd_dpolioud/conda
+name: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - r-viridis
-  - r-seurat
-  - r-cowplot
-  - r-tidyverse
-  - r-ggpubr
   - r-eulerr
-  - bioconductor-complexheatmap
-  - r-ggcorrplot
-  - r-ggally
-  - r-lmertest
-  - r-broom.mixed
-  - r-ggfortify
-  - bioconductor-edger
-  - r-liger=0.4.2.9000
-  - r-batchtools
-  - bioconductor-variancepartition
   - r-matrix=1.2_18
-prefix: /home/lchen/nucseq_nd_dpolioud/conda
+  - r-liger=0.4.2.9000
+  - r-seurat=3.1.2
+  - bioconductor-variancepartition
+  - r-broom.mixed
+  - r-cowplot=1.0.0
+  - r-ggcorrplot
+  - r-lmertest
+  - bioconductor-complexheatmap
+  - r-tidyverse=1.3.0
+  - bioconductor-edger
+  - r-batchtools
+  - r-ggfortify
+  - r-ggpubr
+  - r-ggally
+  - r-viridis
+prefix: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
