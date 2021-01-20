@@ -99,7 +99,8 @@ main <- function() {
     # Merge all subcluster results into one large table.
     subcluster_tb <- subcluster_wk %>% 
         select(ct_subcluster, model_design, broom_join) %>%
-        unnest(broom_join)
+        unnest(broom_join) %>%
+        pivot_wider(names_from = "dx", values_from = c("logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "z.std"))
 
     # Write out lm_broom lists.
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_dream_objs.rds"))
