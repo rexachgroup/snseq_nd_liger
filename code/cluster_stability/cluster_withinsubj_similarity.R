@@ -7,11 +7,13 @@ in_liger_meta <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_clusters <- "../../analysis/seurat_lchen/cluster_stability_subjresample/reclusters.rds"
 in_batchtools <- "../../analysis/seurat_lchen/cluster_stability_subjresample/batchtools/"
 out_jaccard <- "../../analysis/seurat_lchen/cluster_stability_subjresample/recluster_jaccard.csv"
+out_jaccard_raw <- "../../analysis/seurat_lchen/cluster_stability_subjresample/recluster_jaccard_raw.csv"
+out_jaccard_plot <- "../../analysis/seurat_lchen/cluster_stability_subjresample/recluster_jaccard.pdf"
 in_subcluster_wk <- "../../analysis/seurat_lchen/cluster_stability_subjresample/subcluster_resamples.rds"
 
 main <- function() {
     meta <- readRDS(in_liger_meta)
-    reg <- loadRegistry(in_batchtools)
+    reg <- loadRegistry(in_batchtools, writeable = FALSE)
     subcluster_wk <- readRDS(in_subcluster_wk)
 
     meta_subset <- meta %>% 
@@ -21,7 +23,6 @@ main <- function() {
     subcluster_tbs <- meta_subset %>%
         group_by(region, cluster_cell_type) %>%
         group_nest(keep = TRUE)
-
 
     subcluster_tbs <- subcluster_tbs %>%
         mutate(job_id = pmap(., function(...) {
@@ -39,7 +40,6 @@ main <- function() {
             map(liger_clustering, function(x) {calc_liger_jacc_index(data, x)})
         }))
 
-
     jacc_unnest <- subcluster_tbs %>%
         select(-data, -liger_clustering) %>%
         unnest(c(jaccard_index, job_id)) %>%
@@ -50,7 +50,29 @@ main <- function() {
         summarize(max_index_cluster = subs_cluster[which.max(jaccard_index)], max_index = max(jaccard_index), .groups = "drop") %>%
         arrange(job_id, orig_cluster)
 
+    write_csv(jacc_unnest, out_jaccard_raw)
     write_csv(jaccard_max, out_jaccard)
+
+    jacc_plots <- jacc_unnest %>%
+        group_by(job_id, region, cluster_cell_type) %>%
+        group_split(.keep = TRUE) %>%
+        map(function(data) {
+            ggplot(data, aes(x = orig_cluster, y = subs_cluster, fill = jaccard_index)) +
+                geom_tile() +
+                scale_fill_gradient(low = "white", high = "red") +
+                geom_text(aes(x = orig_cluster, y = subs_cluster, label = signif(jaccard_index, 3))) +
+                ggtitle(
+                    paste(
+                        unique(data$region), 
+                        unique(data$cluster_cell_type), 
+                        "jaccard index of resampling within subject\n vs. original liger clustering"
+                    )
+                )
+        })
+
+    pdf(out_jaccard_plot, height = 10, width = 14)
+    walk(jacc_plots, print)
+    dev.off()
 }
 
 extract_liger_reg <- function(job.id, reg = getDefaultRegistry()) {
@@ -72,6 +94,6 @@ calc_liger_jacc_index <- function(orig, subsample) {
     return(cmp_tbl)
 }
 
-if (!interactive) {
+if (!interactive()) {
     main()
 }

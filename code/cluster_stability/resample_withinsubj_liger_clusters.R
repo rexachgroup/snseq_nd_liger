@@ -14,13 +14,13 @@ batchtools <- file.path(out_path_base, "batchtools")
 RESOURCES <- list(
     ncpus = 8,
     memory = 64,
-    walltime = 36000,
+    walltime = 72000,
     measure.memory = TRUE
 )
 
 k <- 20
 lambda <- 0.5
-nprop <- 0.8
+nprop <- 0.9
 iter <- 5
 
 main <- function() {
@@ -64,7 +64,7 @@ main <- function() {
     submitJobs(ids, resources = RESOURCES)
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_resamples.rds"))
     waitForJobs()
-e
+}
  
 resample_subj <- function(meta, ntests = 5, nprop = 0.8, cell_id_col = "cell_ids") {
     set.seed(1)
