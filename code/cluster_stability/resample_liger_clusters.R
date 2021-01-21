@@ -18,12 +18,14 @@ RESOURCES <- list(
     measure.memory = TRUE
 )
 
+k <- 20
+lambda <- 0.5
 main <- function() {
     if (dir.exists(batchtools)) {
         reg <- loadRegistry(batchtools, writeable = TRUE)
         removeRegistry()
     } 
-    reg <- makeRegistry(batchtools, seed = 27)
+    reg <- makeRegistry(batchtools, seed = 1)
 
     meta <- as_tibble(readRDS(in_seurat_meta))
 
@@ -37,10 +39,12 @@ main <- function() {
 
     subcluster_wk <- subcluster_tbs %>%
         mutate(resample_cellids = map(data, function(data) {
-            resample_meta(data, 1, nsize = nrow(data))
+            resample_meta(data, 5, nsize = floor(nrow(data) * 0.8))
         })) %>%
         unnest(resample_cellids)
     
+    subcluster_wk$k <- k
+    subcluster_wk$lambda <- lambda
     clearRegistry()
     ids <- batchMap(liger_cluster_sobj, 
         args = list(
@@ -48,7 +52,9 @@ main <- function() {
             data = subcluster_wk$data
         ), 
         more.args = list(
-            liblist = liblist
+            liblist = liblist,
+            k = k,
+            lambda = lambda
         ))
     subcluster_wk$job.id <- getJobTable()$job.id
     submitJobs(ids, resources = RESOURCES)
@@ -57,17 +63,15 @@ main <- function() {
 }
  
 resample_meta <- function(meta, ntests = 5, nsize = floor(nrow(meta) * 0.8), cell_id_col = "cell_ids") {
-    set.seed(27)
+    set.seed(1)
     return(map(1:ntests, function(i) {
         sample(meta[[cell_id_col]], nsize, replace = FALSE)
     }))
 }
 
 # Worker function: subset sobj to this instance's cell_ids, then convert to liger object and run clustering
-liger_cluster_sobj <- function(cell_ids, data, liblist) {
+liger_cluster_sobj <- function(cell_ids, data, liblist, k = NULL, lambda = NULL) {
     filepath <- unique(data$filepath)
-    k <- 20
-    lambda <- 1
 
     stopifnot("Duplicate cell ids cause errors in seuratToLiger -- don't use bootstrapping"=any(!duplicated(cell_ids)))
     l <- lapply(liblist, require, character.only = TRUE)
