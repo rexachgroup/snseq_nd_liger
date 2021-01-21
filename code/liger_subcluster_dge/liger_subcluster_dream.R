@@ -41,7 +41,7 @@ main <- function() {
             liger_clusters %in% c(1, 7)
         )
 
-    # Split by subcluster, then run lm_broom. 
+    # Split by subcluster + add model design. 
     model_designs <- c("~ clinical_dx + pmi + age + sex + number_umi + percent_mito + (1 | library_id)")
 
     subcluster_tbs <- liger_meta_subset %>%
@@ -50,7 +50,7 @@ main <- function() {
         group_by(ct_subcluster, model_design) %>%
         group_nest(keep = TRUE)
 
-
+    # Filter by proportion detected per dx.
     prop_detected_filter <- 0.1
     subcluster_wk <- subcluster_tbs %>%
         mutate(prop_detected = map(data, function(data) {
@@ -70,6 +70,7 @@ main <- function() {
                        `prop_detected_PSP-S` > prop_detected_filter )
         })) 
     
+    # Submit DREAM runs to cluster nodes.
     clearRegistry()
     batchExport(list(run_dream_de = run_dream_de))
     ids <- batchMap(subcluster_worker, subcluster_wk$data, subcluster_wk$prop_detected)
@@ -78,9 +79,8 @@ main <- function() {
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_dream_wk.rds"))
     waitForJobs()
 
-
-    # Format output + filter by proportion of genes detected.
- 
+    # Extract output from cluster results.
+    # Use topTable() to get results for each contrast.
     subcluster_wk <- subcluster_wk %>%
         mutate(broom_join = pmap(list(data, job_id), function(data, job_id) {
                 print(unique(data$ct_subcluster))
@@ -102,7 +102,7 @@ main <- function() {
         unnest(broom_join) %>%
         pivot_wider(names_from = "dx", values_from = c("logFC", "AveExpr", "t", "P.Value", "adj.P.Val", "z.std"))
 
-    # Write out lm_broom lists.
+    # Write out lists.
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_dream_objs.rds"))
     write_csv(subcluster_tb, file.path(out_path_base, "subcluster_dream.csv"))
 }
