@@ -1,0 +1,5 @@
+﻿library_id,fragments,cells,peaks
+i3_1_at,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_1_at/outs/fragments.tsv.gz,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_1_at/outs/singlecell.csv,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_1_at/outs/peaks.bed
+i3_2_at,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_2_at/outs/fragments.tsv.gz,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_2_at/outs/singlecell.csv,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_2_at/outs/peaks.bed
+i3_3_at,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_3_at/outs/fragments.tsv.gz,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_3_at/outs/singlecell.csv,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_3_at/outs/peaks.bed
+i3_4_at,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_4_at/outs/fragments.tsv.gz,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_4_at/outs/singlecell.csv,/geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/analysis/ATAC/i3_4_at/outs/peaks.bed
