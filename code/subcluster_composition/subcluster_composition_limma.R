@@ -18,6 +18,7 @@ meta <- meta %>%
 
 ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_dx == "Control")) %>% filter(ctl == TRUE)
 
+# Count the number of cells belonging to a control sample for each subcluster.
 library_subcluster_counts <- meta %>%
     filter(cluster_cell_type == cell_type,
            ct_subcluster %in% percluster_tb$ct_subcluster,
@@ -27,6 +28,7 @@ library_subcluster_counts <- meta %>%
               liger_cluster = unique(liger_clusters),
               subcluster_ct = n())
 
+# Count the total number of cells per Seurat cluster.
 library_celltype_counts_full <- meta %>%
     filter(cluster_cell_type == cell_type) %>%
     group_by(region, library_id, cell_type) %>%
