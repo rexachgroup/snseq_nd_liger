@@ -10,7 +10,7 @@ liger_meta <- readRDS(META_FILE)
 
 meta <- liger_meta %>%
     as_tibble() %>%
-    mutate(ct_subcluster = paste(cluster_cell_type, liger_clusters, sep = "-"))
+    mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-"))
 
 meta <- meta %>%
     filter(cluster_cell_type == cell_type)
@@ -31,8 +31,6 @@ percluster_tb <- perdx_tb %>%
     group_by(region, ct_subcluster) %>%
     mutate(libs3_above_10umi = libs_above_10umi >= 3) %>%
     summarize(subcluster_3libs_above_10umi = sum(libs3_above_10umi) > 0)
-
-
 
 saveRDS(meta_libcluster, file.path(OUT_DIR, "liger_subcluster_filtered_meta.rds"), compress = FALSE)
 saveRDS(percluster_tb, file.path(OUT_DIR, "liger_subcluster_filtered_props.rds"))
