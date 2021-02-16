@@ -1,4 +1,7 @@
 code/logs
 code/tmp
+code/args
 tmp/
 analysis/
+conda/
+ext/
