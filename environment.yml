@@ -5,9 +5,9 @@ channels:
   - defaults
 dependencies:
   - r-eulerr
-  - r-matrix=1.2_18
-  - r-liger=0.4.2.9000
-  - r-seurat=3.1.2
+  - r-matrix
+  - r-liger=0.5.0.90000
+  - r-seurat=4.0.0
   - bioconductor-variancepartition
   - r-broom.mixed
   - r-cowplot=1.0.0
@@ -21,4 +21,5 @@ dependencies:
   - r-ggpubr
   - r-ggally
   - r-viridis
+
 prefix: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
