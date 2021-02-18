@@ -74,7 +74,7 @@ main <- function() {
                 current_row <- list(...)
                 broom_list <- loadResult(current_row$job_id)
                 writeLines(paste(current_row$job_id))
-                format_lm_output(broom_list, current_row$split_meta, "clinical_dx")
+                format_lm_output(broom_list, current_row$data, "clinical_dx")
             }))
 
     cluster_wk <- cluster_wk %>%
@@ -187,7 +187,7 @@ prop_detected_generate <- function(meta, subcluster_so) {
 
 format_lm_output <- function(
     lm_out_obj_l,
-    liger_meta,
+    meta,
     beta_regex){
 
     # format lm output into tibble
@@ -233,10 +233,10 @@ format_lm_output <- function(
             contains("statistic")
         ) %>%
         mutate(
-            model = paste0(unique(liger_meta$model_design), collapse = ":"),
-            region = paste0(unique(liger_meta$region), collapse = ":"),
-            cell_type = paste0(unique(liger_meta$cluster_cell_type), collapse = ":"),
-            ct_subcluster = paste0(unique(liger_meta$ct_subcluster), collapse=":")
+            model = paste0(unique(meta$model_design), collapse = ":"),
+            region = paste0(unique(meta$region), collapse = ":"),
+            cell_type = paste0(unique(meta$cluster_cell_type), collapse = ":"),
+            ct_cluster = paste0(unique(meta$ct_cluster), collapse=":")
         )
 
     return(lm_filter_out)
