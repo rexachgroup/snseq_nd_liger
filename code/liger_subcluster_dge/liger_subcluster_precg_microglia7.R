@@ -1,4 +1,5 @@
-# Compare one dx vs. all other conditions.
+# Special run for precg-microglia-7.
+# Compare AD vs. all other Dx in this module with precalculated gene list.
 set.seed(0)
 liblist <- c("Seurat", "tidyverse", "variancePartition", "batchtools", "edgeR", "BiocParallel", "future.apply", "lme4", "lmerTest", "broom.mixed")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
@@ -10,9 +11,11 @@ in_seurat_liger <-
   "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_subcluster_celltype_filter <- 
     "../../analysis/seurat_lchen/liger_subcluster_celltype_filter/celltype_filter.rds"
+in_gene_list <- 
+    "../../resources/subcluster_lme_precgMicroglia7_INPUTGENELIST_02162021_10PADORCONTROL.csv"
 
 ## Outputs
-out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_dx_isol/"
+out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_precg_microglia7/"
 batchtools <- file.path(out_path_base, "batchtools")
 dir.create(out_path_base, recursive = TRUE)
 
@@ -34,6 +37,7 @@ main <- function() {
     }
     liger_meta <- readRDS(in_seurat_liger)
     subcluster_celltype_filter <- readRDS(in_subcluster_celltype_filter)
+    gene_list <- read_csv(in_gene_list, col_names = FALSE)$X1
 
     # Filter metadata to get cell ids for matching region, cell_type.
     # Subset seurat object.
@@ -65,7 +69,7 @@ main <- function() {
                      prop_detected_generate = prop_detected_generate, prop_cells_detected_dx = prop_cells_detected_dx), reg = reg)
     ids <- batchMap(subcluster_worker,
         args = list(meta = subcluster_wk$data),
-        more.args = list(prop_detected_filter = prop_detected_filter)
+        more.args = list(gene_filter = gene_list, prop_detected_filter = prop_detected_filter)
     )
     ids <- findNotDone() %>%
         mutate(chunk = chunk(job.id, chunk.size = chunk_size))
@@ -94,7 +98,7 @@ main <- function() {
     write_csv(subcluster_tb, file.path(out_path_base, "subcluster_lme.csv"))
 }
 
-subcluster_worker <- function(meta, prop_detected_filter) {
+subcluster_worker <- function(meta, gene_filter, prop_detected_filter) {
     options(future.globals.maxSize = Inf)
     envdata <- new.env()
     load(file.path("..", unique(meta$filepath)), envdata)
@@ -107,7 +111,7 @@ subcluster_worker <- function(meta, prop_detected_filter) {
                       `prop_detected_PSP-S` > prop_detected_filter)
 
     # Subset.
-    subcluster_so <- subset(envdata$liger_so, cells = meta$cell_ids, features = detected$gene)
+    subcluster_so <- subset(envdata$liger_so, cells = meta$cell_ids, features = gene_filter)
     rm(envdata)
     gc()
     return(run_lmer_de(subcluster_so, meta, down_sample_cells = 10000, cores = RESOURCES$ncores))
