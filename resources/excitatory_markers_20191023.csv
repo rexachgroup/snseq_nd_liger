@@ -1,0 +1,50 @@
+﻿gene_symbol,marker_for,source,pmid,notes
+LAMP5,L2,hodge,31435019,combined with LAMP5
+LTK,"L2,L3,L4",hodge,31435019,combined with LTK
+LINC00507,"L2,L3,L4",hodge,31435019,
+GLP2R,"L2,L3,L4",hodge,31435019,combined with LINC00507
+FREM3,"L2,L3",hodge,31435019,combined with LINC00507
+RORB,"L3,L4,L5,L6",hodge,31435019,
+CARM1P1,"L3,L4",hodge,31435019,combined with RORB
+ESR1,"L3,L4,L5",hodge,31435019,combined with RORB
+COL22A1,"L3,L4,L5",hodge,31435019,combined with RORB
+FILIP1L,"L3,L4,L5",hodge,31435019,combined with RORB
+TWIST2,"L3,L4,L5",hodge,31435019,combined with RORB
+FOLH1B,"L4,L5",hodge,31435019,combined with RORB
+SEMA3E,"L4,L5,L6",hodge,31435019,combined with RORB
+DAPK2,"L4,L5",hodge,31435019,combined with RORB
+TTC12,"L5,L6",hodge,31435019,combined with RORB
+C1R,"L4,L5,L6",hodge,31435019,combined with RORB
+SCN4B,"L4,5",hodge,31435019,combined with FEZF2
+C1QL3,"L5,L6",hodge,31435019,combined with THEMIS
+DCSTAMP,"L5,L6",hodge,31435019,combined with THEMIS
+CRABP1,"L5,L6",hodge,31435019,combined with THEMIS
+FGF10,"L5,L6",hodge,31435019,combined with THEMIS
+IL26,"L4,L5,L6",hodge,31435019,combined with FEZF2
+ABO,"L5,L6",hodge,31435019,combined with FEZF2
+SCUBE1,L6,hodge,31435019,combined with FEZF2
+IL15,"L5,L6",hodge,31435019,combined with FEZF2
+OR2T8,L6,hodge,31435019,combined with FEZF2
+EFTUD1P1,"L5,L6",hodge,31435019,combined with FEZF2
+FEZF2,"L4,L5,L6",hodge,31435019,
+CBLN2,"L2,L3",lake,29227469,ExL2-3 = Ex1 I think
+RASGRF2,"L2,L3,L4",lake,29227469,ExL4 = Ex2–4
+COL5A2,L4,lake,29227469,
+GLIS3,L4,lake,29227469,
+CUX2,"L2,L3,L4",lake,29227469,
+NEFM,L4,lake,29227469,
+RORB,"L4,L5,L6",lake,29227469,
+PHACTR2,L4,lake,29227469,
+EYA4,L4,lake,29227469,
+IL1RAPL2,"L4,L5,L6",lake,29227469,
+HSP8,L4,lake,29227469,
+TSHZ2,"L4,L5,L6",lake,29227469,
+FOXP2,"L4,L5,L6",lake,29227469,
+PCP4,"L5,L6",lake,29227469,
+PDE1C,"L5,L6",lake,29227469,
+HS3ST2,"L5,L6",lake,29227469,ExL5/6 = Ex5–8
+HS3ST5,"L5,L6",lake,29227469,
+HTR2C,"L5,L6",lake,29227469,
+TLE4,"L5,L6",lake,29227469,
+NR4A2,L6,lake,29227469,
+RELN,Gran,lake,29227469,

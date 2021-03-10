@@ -1,0 +1,276 @@
+﻿gene_symbol,marker_for,source
+NRGN,excitatory,tsai
+ CMAK2A,excitatory,tsai
+ SLC17A7,excitatory,tsai
+ GRIN1,excitatory,tsai
+ SNAP25,excitatory,tsai
+ SYT1,excitatory,tsai
+GAD1,inhibitory,tsai
+ GAD2,inhibitory,tsai
+AQP4,astrocyte,tsai
+ GFAP,astrocyte,tsai
+MBP,oligo,tsai
+ MOBP,oligo,tsai
+ PLP1,oligo,tsai
+CD74,micro,tsai
+ CSF1R,micro,tsai
+ C3,micro,tsai
+VCAN,OPC,tsai
+ PDGFRA,OPC,tsai
+ CSPG4,OPC,tsai
+FLT1,endo,tsai
+ CLDN5,endo,tsai
+ITI,pericyte,tsai
+,,
+NSF,neuron,Oldham
+NRXN1,neuron,Oldham
+SNAP25S2B,neuron,Oldham
+SYT1,neuron,Oldham
+DLG4,neuron,Oldham
+SNAP25,neuron,Oldham
+SCN8A,neuron,Oldham
+NRCAM,neuron,Oldham
+CYN,neuron,Oldham
+ENO2,neuron,Oldham
+GJA1,astrocyte,Oldham
+SLC1A3,astrocyte,Oldham
+SLC1A2,astrocyte,Oldham
+AQP4,astrocyte,Oldham
+GLUD1,astrocyte,Oldham
+GLUL,astrocyte,Oldham
+SOX2,astrocyte,Oldham
+SOX9,astrocyte,Oldham
+ALDIHL1,astrocyte,Oldham
+GFAP,astrocyte,Oldham
+MOG,oligo,Oldham
+MAG,oligo,Oldham
+PLP1,oligo,Oldham
+CNP,oligo,Oldham
+TF,oligo,Oldham
+MYRF,oligo,Oldham
+SOX10,oligo,Oldham
+MBP,oligo,Oldham
+OLIG2,oligo,Oldham
+AIF1,micro,Oldham
+TYROBP,micro,Oldham
+CSF1R,micro,Oldham
+TREM2,micro,Oldham
+ITGAM,micro,Oldham
+PTPRC,micro,Oldham
+CXC3R1,micro,Oldham
+CD68,micro,Oldham
+P2RY12,micro,Oldham
+CD33,micro,Oldham
+A2M,endothelial,Oldham
+SLC2A1,endothelial,Oldham
+VWF,endothelial,Oldham
+EPAS1,endothelial,Oldham
+PODXL,endothelial,Oldham
+TGFBR2,endothelial,Oldham
+HLA-E,endothelial,Oldham
+TMEM204,endothelial,Oldham
+APOL3,endothelial,Oldham
+GPR116,endothelial,Oldham
+C11ORF88,ependymal ,Oldham
+FAM81B,ependymal ,Oldham
+ARMC3,ependymal ,Oldham
+SSLC47A2,ependymal ,Oldham
+SPAG17,ependymal ,Oldham
+DNAH11,ependymal ,Oldham
+FAM183A,ependymal ,Oldham
+CCDC19,ependymal ,Oldham
+DNAH12,ependymal ,Oldham
+SPAG6,ependymal ,Oldham
+,,
+NSF,neuron,OLDHAM EXTENDED
+SNAP25,neuron,OLDHAM EXTENDED
+TRIM37,neuron,OLDHAM EXTENDED
+ATP2A2,neuron,OLDHAM EXTENDED
+MAPK9,neuron,OLDHAM EXTENDED
+PPP3CB,neuron,OLDHAM EXTENDED
+CNR1,neuron,OLDHAM EXTENDED
+CELF2,neuron,OLDHAM EXTENDED
+CAP2,neuron,OLDHAM EXTENDED
+CHM,neuron,OLDHAM EXTENDED
+ACTR3B,neuron,OLDHAM EXTENDED
+GUCY1B3,neuron,OLDHAM EXTENDED
+OXCT1,neuron,OLDHAM EXTENDED
+NRXN1,neuron,OLDHAM EXTENDED
+GRIN2B,neuron,OLDHAM EXTENDED
+MYH10,neuron,OLDHAM EXTENDED
+SYNJ1,neuron,OLDHAM EXTENDED
+NDFIP1,neuron,OLDHAM EXTENDED
+GABRA4,neuron,OLDHAM EXTENDED
+WDR47,neuron,OLDHAM EXTENDED
+NCEH1,neuron,OLDHAM EXTENDED
+APT6V1B2,neuron,OLDHAM EXTENDED
+NPTN,neuron,OLDHAM EXTENDED
+RHOT1,neuron,OLDHAM EXTENDED
+GABRA1,neuron,OLDHAM EXTENDED
+ACP1,neuron,OLDHAM EXTENDED
+FAXC,neuron,OLDHAM EXTENDED
+MAP7D2,neuron,OLDHAM EXTENDED
+ANK2,neuron,OLDHAM EXTENDED
+OPA1,neuron,OLDHAM EXTENDED
+RNF11,neuron,OLDHAM EXTENDED
+BHLHB9,neuron,OLDHAM EXTENDED
+INPP4A,neuron,OLDHAM EXTENDED
+MAPK1,neuron,OLDHAM EXTENDED
+ADD2,neuron,OLDHAM EXTENDED
+PAM,neuron,OLDHAM EXTENDED
+STXBP1,neuron,OLDHAM EXTENDED
+G3BP2,neuron,OLDHAM EXTENDED
+NDUFAF4,neuron,OLDHAM EXTENDED
+BGABRG2,neuron,OLDHAM EXTENDED
+NNT,neuron,OLDHAM EXTENDED
+CADP2,neuron,OLDHAM EXTENDED
+SULT4A1,neuron,OLDHAM EXTENDED
+AAK1,neuron,OLDHAM EXTENDED
+PP2CA,neuron,OLDHAM EXTENDED
+NAPB,neuron,OLDHAM EXTENDED
+FAM20B,neuron,OLDHAM EXTENDED
+SCN8A,neuron,OLDHAM EXTENDED
+UBE2V,neuron,OLDHAM EXTENDED
+NTRK2,astrocyte,OLDHAM EXTENDED
+NOTCH2,astrocyte,OLDHAM EXTENDED
+SLC1A3,astrocyte,OLDHAM EXTENDED
+ATP1A2,astrocyte,OLDHAM EXTENDED
+PON2,astrocyte,OLDHAM EXTENDED
+PDLIM5,astrocyte,OLDHAM EXTENDED
+TP53BP2,astrocyte,OLDHAM EXTENDED
+HEPH,astrocyte,OLDHAM EXTENDED
+PPAP2B,astrocyte,OLDHAM EXTENDED
+MLC1,astrocyte,OLDHAM EXTENDED
+RAB31,astrocyte,OLDHAM EXTENDED
+GPR125,astrocyte,OLDHAM EXTENDED
+METTL7A,astrocyte,OLDHAM EXTENDED
+SLC4A4,astrocyte,OLDHAM EXTENDED
+BBOX1,astrocyte,OLDHAM EXTENDED
+BMPR1B,astrocyte,OLDHAM EXTENDED
+ENTPPL,astrocyte,OLDHAM EXTENDED
+ARHGAF26,astrocyte,OLDHAM EXTENDED
+GJA1,astrocyte,OLDHAM EXTENDED
+SLC1A2,astrocyte,OLDHAM EXTENDED
+ALD6A1,astrocyte,OLDHAM EXTENDED
+GPAM,astrocyte,OLDHAM EXTENDED
+AQP4,astrocyte,OLDHAM EXTENDED
+TRIL,astrocyte,OLDHAM EXTENDED
+SOX2,astrocyte,OLDHAM EXTENDED
+AHCYL1,astrocyte,OLDHAM EXTENDED
+FGFR3,astrocyte,OLDHAM EXTENDED
+RAB34,astrocyte,OLDHAM EXTENDED
+GRAMD1C,astrocyte,OLDHAM EXTENDED
+AGT,astrocyte,OLDHAM EXTENDED
+SPON1,astrocyte,OLDHAM EXTENDED
+ALDH2,astrocyte,OLDHAM EXTENDED
+SLC25A18,astrocyte,OLDHAM EXTENDED
+MERTK,astrocyte,OLDHAM EXTENDED
+PLSCR4,astrocyte,OLDHAM EXTENDED
+SLC18B1,astrocyte,OLDHAM EXTENDED
+APOE,astrocyte,OLDHAM EXTENDED
+ANTA1,astrocyte,OLDHAM EXTENDED
+ATP13A4,astrocyte,OLDHAM EXTENDED
+CLDN10,astrocyte,OLDHAM EXTENDED
+GPR56,astrocyte,OLDHAM EXTENDED
+LRP4,astrocyte,OLDHAM EXTENDED
+CDC42EP4,astrocyte,OLDHAM EXTENDED
+MYO10,astrocyte,OLDHAM EXTENDED
+TIMP3,astrocyte,OLDHAM EXTENDED
+APCDD1,astrocyte,OLDHAM EXTENDED
+SOX9,astrocyte,OLDHAM EXTENDED
+EDNRB,astrocyte,OLDHAM EXTENDED
+MOG,oligodendrocyte,OLDHAM EXTENDED
+SLC44A1,oligodendrocyte,OLDHAM EXTENDED
+FA2H,oligodendrocyte,OLDHAM EXTENDED
+CNP,oligodendrocyte,OLDHAM EXTENDED
+CAPN3,oligodendrocyte,OLDHAM EXTENDED
+CLDND1,oligodendrocyte,OLDHAM EXTENDED
+ERBB3,oligodendrocyte,OLDHAM EXTENDED
+GPR37,oligodendrocyte,OLDHAM EXTENDED
+CTCN2,oligodendrocyte,OLDHAM EXTENDED
+MAG,oligodendrocyte,OLDHAM EXTENDED
+SLC31A2,oligodendrocyte,OLDHAM EXTENDED
+ENPP2,oligodendrocyte,OLDHAM EXTENDED
+HSPA2,oligodendrocyte,OLDHAM EXTENDED
+UGT8,oligodendrocyte,OLDHAM EXTENDED
+DBNDD2,oligodendrocyte,OLDHAM EXTENDED
+TTYH2,oligodendrocyte,OLDHAM EXTENDED
+NPC1,oligodendrocyte,OLDHAM EXTENDED
+TMEM125,oligodendrocyte,OLDHAM EXTENDED
+TMEM63A,oligodendrocyte,OLDHAM EXTENDED
+RNASE1,oligodendrocyte,OLDHAM EXTENDED
+RASGRP3,oligodendrocyte,OLDHAM EXTENDED
+SLC45A3,oligodendrocyte,OLDHAM EXTENDED
+FAM107B,oligodendrocyte,OLDHAM EXTENDED
+SHDTC2,oligodendrocyte,OLDHAM EXTENDED
+PLP1,oligodendrocyte,OLDHAM EXTENDED
+USP54,oligodendrocyte,OLDHAM EXTENDED
+TF,oligodendrocyte,OLDHAM EXTENDED
+NDE1,oligodendrocyte,OLDHAM EXTENDED
+FOLM1,oligodendrocyte,OLDHAM EXTENDED
+PMP22,oligodendrocyte,OLDHAM EXTENDED
+GJB1,oligodendrocyte,OLDHAM EXTENDED
+C10ORF90,oligodendrocyte,OLDHAM EXTENDED
+GLDN,oligodendrocyte,OLDHAM EXTENDED
+ELOVL1,oligodendrocyte,OLDHAM EXTENDED
+TMEM98,oligodendrocyte,OLDHAM EXTENDED
+RFFL,oligodendrocyte,OLDHAM EXTENDED
+SLC5A11,oligodendrocyte,OLDHAM EXTENDED
+KIF13B,oligodendrocyte,OLDHAM EXTENDED
+PSEN1,oligodendrocyte,OLDHAM EXTENDED
+CAASPA,oligodendrocyte,OLDHAM EXTENDED
+TMEM144,oligodendrocyte,OLDHAM EXTENDED
+SEPP1,oligodendrocyte,OLDHAM EXTENDED
+PIP4K2A,oligodendrocyte,OLDHAM EXTENDED
+CARNS1,oligodendrocyte,OLDHAM EXTENDED
+SLAIN1,oligodendrocyte,OLDHAM EXTENDED
+ZDHHC9,oligodendrocyte,OLDHAM EXTENDED
+CNNDP1,oligodendrocyte,OLDHAM EXTENDED
+PLAG2G16,oligodendrocyte,OLDHAM EXTENDED
+PXK,oligodendrocyte,OLDHAM EXTENDED
+APBB1P,microgla,OLDHAM EXTENDED
+AIF1,microgla,OLDHAM EXTENDED
+TYROBP,microgla,OLDHAM EXTENDED
+C3,microgla,OLDHAM EXTENDED
+CD74,microgla,OLDHAM EXTENDED
+C1QB,microgla,OLDHAM EXTENDED
+LAPTM5,microgla,OLDHAM EXTENDED
+ALOX5AP,microgla,OLDHAM EXTENDED
+LST1,microgla,OLDHAM EXTENDED
+RGS10,microgla,OLDHAM EXTENDED
+LY86,microgla,OLDHAM EXTENDED
+HLA-DRA,microgla,OLDHAM EXTENDED
+HCLS1,microgla,OLDHAM EXTENDED
+CSF1R,microgla,OLDHAM EXTENDED
+CYBB,microgla,OLDHAM EXTENDED
+FYB,microgla,OLDHAM EXTENDED
+C1QA,microgla,OLDHAM EXTENDED
+HAVCR2,microgla,OLDHAM EXTENDED
+ALOX5AP,microgla,OLDHAM EXTENDED
+SYK,microgla,OLDHAM EXTENDED
+SCXCR1,microgla,OLDHAM EXTENDED
+SLC25A5,microgla,OLDHAM EXTENDED
+DOCK8,microgla,OLDHAM EXTENDED
+SELPLG,microgla,OLDHAM EXTENDED
+SUSD3,microgla,OLDHAM EXTENDED
+IGSF6,microgla,OLDHAM EXTENDED
+HLA-DMA,microgla,OLDHAM EXTENDED
+RNASET2,microgla,OLDHAM EXTENDED
+TREM2,microgla,OLDHAM EXTENDED
+AARGDIB,microgla,OLDHAM EXTENDED
+LILRB4,microgla,OLDHAM EXTENDED
+GPR34,microgla,OLDHAM EXTENDED
+CD68,microgla,OLDHAM EXTENDED
+ITGB2,microgla,OLDHAM EXTENDED
+HLA-DMB,microgla,OLDHAM EXTENDED
+HITGAM,microgla,OLDHAM EXTENDED
+CD53,microgla,OLDHAM EXTENDED
+ADAP2,microgla,OLDHAM EXTENDED
+TLR7,microgla,OLDHAM EXTENDED
+PYCARD,microgla,OLDHAM EXTENDED
+MYO1F,microgla,OLDHAM EXTENDED
+LAT2,microgla,OLDHAM EXTENDED
+HCYTH4,microgla,OLDHAM EXTENDED
+RHBDF2,microgla,OLDHAM EXTENDED
+PY2RY12,microgla,OLDHAM EXTENDED
+PTAFR,microgla,OLDHAM EXTENDED

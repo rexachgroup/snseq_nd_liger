@@ -1,0 +1,24 @@
+﻿gene_symbol,marker_for,source,pmid
+FGFR3,astrocyte,hodge,31435019
+GFAP,astrocyte,tsai,31042697
+SLC14A1,astrocyte,hodge,31435019
+AQP4,astrocyte,tsai,31042697
+FLT1,endothelia,tsai,31042697
+CLDN5,endothelia,tsai,31042697
+VWF,endothelia,oldham,
+CD74,microglia,tsai,31042697
+CSF1R,microglia,tsai,31042697
+C3,microglia,tsai,31042697
+MOBP,oligodendrocyte,tsai,31042697
+MOG,oligodendrocyte,oldham | brie,
+VCAN,OPC,tsai,31042697
+PDGFRA,OPC,tsai,31042697
+CSPG4,OPC,tsai,31042697
+SATB2,excitatory,brie,
+SLC17A7,excitatory,hodge,31435019
+NRGN,excitatory,tsai,31042697
+GAD1,inhibitory,tsai | brie | hodge,31435019
+GAD2,inhibitory,tsai,31042697
+ACTA2,pericyte,Pericyte Review Nat Neuro 2016,27227366
+RGS5,pericyte,Pericyte Review Nat Neuro 2016,27227366
+AMBP,pericyte,tsai,31042697

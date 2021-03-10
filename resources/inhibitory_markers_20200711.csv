@@ -1,0 +1,13 @@
+﻿gene_symbol,marker_for,source,pmid,notes
+LHX6,mge_derived,"inma, lake et al",,
+ADARB2,cge_derived,"inma, lake et al",,
+PVALB,,"inma, lake et al",,
+SCUBE3,,"inma, lake et al",,PVALB+ SCUBE3+ (chandelier) - also GAD1+/GAD2-  (useful because SCUBE has low expr.)
+GAD1,,"inma, lake et al",,(inhibitory are all GAD1; all except chandelier are also GAD2)
+GAD2,,"inma, lake et al",,Note: there is a small double LHX6+/ADARB2+ population
+SST,,"inma, lake et al",,
+NPY,,"inma, lake et al",,
+LAMP5,,"inma, lake et al",,ADARB2 subtype: LAMP5+ (with two subclusters CXCL14- and CXCL14+)
+CXCL14,,"inma, lake et al",,
+CALB2,,"inma, lake et al",,ADARB2 subtype: CALB2+ (a subcluster is also VIP+)
+VIP,,"inma, lake et al",,ADARB2 subtype: CALB2+ (a subcluster is also VIP+)

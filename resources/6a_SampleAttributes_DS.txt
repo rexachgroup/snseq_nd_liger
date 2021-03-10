@@ -1,0 +1,17 @@
+SAMPLE_ID	BODY_SITE	ANALYTE_TYPE	IS_TUMOR	HISTOLOGICAL_TYPE	COLLECTION_AGE	LIBRARY_BATCH	RIN	INPUT_CELL_COUNT	LIBRARY_TYPE
+P1_3	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	76	1	5	6000	10xgenomics_v2
+P1_7	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	57	1	6.3	6000	10xgenomics_v2
+P2_1	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	60	2	6.1	10000	10xgenomics_v2
+P2_5	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	84	2	5.6	10000	10xgenomics_v2
+P3_1	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	72	3	7.2	7000	10xgenomics_v2
+P3_3	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	66	3	7.4	7000	10xgenomics_v2
+P4_5	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	70	4	5	7000	10xgenomics_v2
+P4_6	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	57	4	6.9	7000	10xgenomics_v2
+P1_4	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	61	1	6.4	7000	10xgenomics_v2
+P1_8	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	67	1	5.2	7000	10xgenomics_v2
+P2_2	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	60	2	5.1	10000	10xgenomics_v2
+P2_6	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	74	2	6.3	10000	10xgenomics_v2
+P3_2	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	76	3	6.1	7000	10xgenomics_v2
+P3_5	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	67	3	5.6	7000	10xgenomics_v2
+P4_3	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	65	4	3.6	7000	10xgenomics_v2
+P4_7	pre-central_gyrus	RNA	N	nuclei_from_frozen_tissue	56	4	6.7	7000	10xgenomics_v2
