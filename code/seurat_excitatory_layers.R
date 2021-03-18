@@ -29,7 +29,7 @@ main <- function() {
         print(n = Inf) %>%
         write_csv(file.path(out_dir, "ct_layer.csv"))
     pdf(file.path(out_dir, "excitatory_markers.pdf"), width = 10, height = 7)
-    ggplot(sobj_umap, aes(x = UMAP_1, y = UMAP_2, color = celltype_layer)) + rasterize(geom_point(size = 1), dpi = 300, dev = "ragg_png") +
+    ggplot(sobj_umap, aes(x = UMAP_1, y = UMAP_2, color = sobj$cluster_celltype_layer)) + rasterize(geom_point(size = 1), dpi = 300, dev = "ragg_png") +
         scale_color_manual(values = setNames(pal_stallion, NULL)) +
         theme(aspect.ratio = 1)
     graphics.off()

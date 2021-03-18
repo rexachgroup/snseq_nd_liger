@@ -20,6 +20,7 @@ dependencies:
   - r-ggfortify
   - r-ggpubr
   - r-ggally
+  - r-ggrastr
   - r-viridis
 
 prefix: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
