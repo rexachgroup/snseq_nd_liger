@@ -4,7 +4,7 @@ liblist <- c("Seurat", "tidyverse", "batchtools", "patchwork", "ggrastr", "ragg"
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 options(future.globals.maxSize = Inf, deparse.max.lines = 5)
 
-excitatory_markers <- "../resources/excitatory_layers_20210316.csv"
+excitatory_markers <- "../resources/excitatory_layers_20210318.csv"
 in_seurat_rds <- "../analysis/pci_import/pci_seurat.rds"
 out_dir <- "../analysis/seurat_lchen/seurat_excitatory_layers"
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -16,24 +16,19 @@ main <- function() {
     sobj <- readRDS(in_seurat_rds)
     markers_tb <- read_csv(excitatory_markers) %>%
         filter(gene_symbol %in% rownames(sobj))
-    region_split <- sobj@meta.data %>%
-        as_tibble %>%
-        group_by(region) %>%
-        group_nest(keep = TRUE)
 
     sobj <- assign_layertype(sobj, markers_tb)
     sobj <- assign_cluster_layertype(sobj)
-    # sobj <- readRDS(file.path(out_dir, "sobj_ct.rds"))
+    sobj$cluster_celltype_layer <- ifelse(sobj$cluster_cell_type == "excitatory", sobj$cluster_layer_type, sobj$cluster_cell_type)
+    sobj$celltype_layer <- ifelse(sobj$cell_type == "excitatory", sobj$layer_type, sobj$cell_type)
     sobj_umap <- as.data.frame(Embeddings(sobj, reduction = "umap"))
 
-    sobj$celltype_layer <- ifelse(sobj$cluster_cell_type == "excitatory", sobj$cluster_layer_type, sobj$cluster_cell_type)
     sobj@meta.data %>% as_tibble %>%
         group_by(celltype_layer, cluster_ids) %>%
         summarize(n = n()) %>%
         print(n = Inf) %>%
         write_csv(file.path(out_dir, "ct_layer.csv"))
     pdf(file.path(out_dir, "excitatory_markers.pdf"), width = 10, height = 7)
-    #print(DimPlot(sobj, cols = list(layer1 = sobj$seurat_cluster)))
     ggplot(sobj_umap, aes(x = UMAP_1, y = UMAP_2, color = celltype_layer)) + rasterize(geom_point(size = 1), dpi = 300, dev = "ragg_png") +
         scale_color_manual(values = setNames(pal_stallion, NULL)) +
         theme(aspect.ratio = 1)
