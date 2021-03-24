@@ -1,0 +1,16 @@
+schema: '2.0'
+stages:
+  00-pci-seurat-import:
+    cmd: Rscript pci_seurat_import.R
+    deps:
+    - path: ../analysis/seurat/20200816/pci_filtered_seurat_object.rdat
+      md5: b74d3c5988fa4abe53b75c2c85eecab3
+      size: 15820543894
+    - path: pci_seurat_import.R
+      md5: 53f2706e327ff8cb3e989b4c4dcfee70
+      size: 2292
+    outs:
+    - path: ../analysis/pci_import/
+      md5: d80b15122555f43bd7a7bf679eefe514.dir
+      size: 39924748994
+      nfiles: 2

@@ -1,0 +1,9 @@
+stages:
+    00-pci-seurat-import:
+        cmd: Rscript pci_seurat_import.R
+        wdir: code/
+        deps:
+            - ../analysis/seurat/20200816/pci_filtered_seurat_object.rdat
+            - pci_seurat_import.R
+        outs:
+            - ../analysis/pci_import/
