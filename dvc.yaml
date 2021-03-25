@@ -7,3 +7,12 @@ stages:
             - pci_seurat_import.R
         outs:
             - ../analysis/pci_import/
+    01-liger-seurat-import:
+        cmd: Rscript liger_seurat_import.R
+        wdir: code/
+        deps:
+            - ../analysis/liger_subcluster/20200824
+            - liger_seurat_import.R
+        outs:
+            - ../analysis/seurat_lchen/liger_subcluster_metadata.rds
+            - ../analysis/seurat_lchen/liger_subcluster_meta.csv

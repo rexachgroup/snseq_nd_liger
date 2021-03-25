@@ -14,3 +14,37 @@ stages:
       md5: d80b15122555f43bd7a7bf679eefe514.dir
       size: 39924748994
       nfiles: 2
+  01-liger-subcluster-import:
+    cmd: Rscript liger_seurat_import.R
+    deps:
+    - path: ../analysis/liger_subcluster/20200824
+      md5: eda45284d0c198128ac022b5b3a49b18.dir
+      size: 19270234545
+      nfiles: 75
+    - path: liger_seurat_import.R
+      md5: 0b0018a18bffa72ec382f2a0acbc8ae6
+      size: 766
+    outs:
+    - path: ../analysis/seurat_lchen/liger_subcluster_meta.csv
+      md5: 6d35b6c061a8b0946e535f04b84b3565
+      size: 418643117
+    - path: ../analysis/seurat_lchen/liger_subcluster_metadata.rds
+      md5: 55bbad22b0f222adf26a590832db96b5
+      size: 457429898
+  01-liger-seurat-import:
+    cmd: Rscript liger_seurat_import.R
+    deps:
+    - path: ../analysis/liger_subcluster/20200824
+      md5: eda45284d0c198128ac022b5b3a49b18.dir
+      size: 19270234545
+      nfiles: 75
+    - path: liger_seurat_import.R
+      md5: 0b0018a18bffa72ec382f2a0acbc8ae6
+      size: 766
+    outs:
+    - path: ../analysis/seurat_lchen/liger_subcluster_meta.csv
+      md5: 6d35b6c061a8b0946e535f04b84b3565
+      size: 418643117
+    - path: ../analysis/seurat_lchen/liger_subcluster_metadata.rds
+      md5: 2fba1087355fe7eca0ad4231b99a38be
+      size: 457429898
