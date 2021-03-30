@@ -24,6 +24,76 @@ RESOURCES <- list(
 prop_detected_filter <- 0.1
 chunk_size <- 1
 
+# List of tests. Each pair of statements is evaluated by dplyr::filter on the metadata,
+# and is used to set a new factor column named custom_split in the returned table.
+# The second entry is always the background and will be the first level.
+test_statements <- list(
+    "calcarine-exitatory-2-psp" = list(
+        quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "PSP-S"), 
+        quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx != "PSP-S")
+    ),
+    "insula-excitatory-2vs5-all" = list(
+        quo(ct_subcluster == "insula-excitatory-2"), 
+        quo(ct_subcluster == "insula-excitatory-5")
+    ),
+    "insula-excitatory-2vs5-all-dx" = list(
+        quo(ct_subcluster == "insula-excitatory-2" & clinical_dx != "Control"), 
+        quo(ct_subcluster == "insula-excitatory-5" & clinical_dx != "Control")
+    ),
+    "insula-excitatory-2vs5-ctl" = list(
+        quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "Control"), 
+        quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "Control")
+    ),
+    "insula-excitatory-2vs5-ad" = list(
+        quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "AD"),
+        quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "AD")
+    ),
+    "insula-excitatory-2vs5-ftd" = list(
+        quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "bvFTD"), 
+        quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "bvFTD")
+    ),
+    "insula-excitatory-2vs5-psp" = list(
+        quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "PSP-S"),
+        quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "PSP-S")
+    ),
+    "precg-microglia-1-ftd" = list(
+        quo(ct_subcluster == "preCG-microglia-1" & clinical_dx == "bvFTD"), 
+        quo(ct_subcluster == "preCG-microglia-1" & clinical_dx != "bvFTD")
+    ),
+    "precg-excitatory-4vs7-ctl" = list(
+        quo(ct_subcluster == "preCG-excitatory-4" & clinical_dx == "Control"),
+        quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "Control")
+    ),
+    "precg-excitatory-4vs7-ad" = list(
+        quo(ct_subcluster == "preCG-excitatory-4" & clinical_dx == "AD"),
+        quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "AD")
+    ),
+    "precg-excitatory-4vs7-pid" = list(
+        quo(ct_subcluster == "preCG-excitatory-4" & clinical_dx == "bvFTD"),
+        quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "bvFTD")
+    ),
+    "precg-excitatory-4vs7-psp" = list(
+        quo(ct_subcluster == "preCG-excitatory-4" & clinical_dx == "PSP-S"),
+        quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "PSP-S")
+    ),
+    "insula-excitatory-13vs8-ctl" = list(
+        quo(ct_subcluster == "insula-excitatory-13" & clinical_dx == "Control"),
+        quo(ct_subcluster == "insula-excitatory-8" & clinical_dx == "Control")
+    ),
+    "insula-excitatory-13vs8-ad" = list(
+        quo(ct_subcluster == "insula-excitatory-13" & clinical_dx == "AD"),
+        quo(ct_subcluster == "insula-excitatory-8" & clinical_dx == "AD")
+    ),
+    "insula-excitatory-13vs8-pid" = list(
+        quo(ct_subcluster == "insula-excitatory-13" & clinical_dx == "bvFTD"),
+        quo(ct_subcluster == "insula-excitatory-8" & clinical_dx == "bvFTD")
+    ),
+    "insula-excitatory-13vs8-psp" = list(
+        quo(ct_subcluster == "insula-excitatory-13" & clinical_dx == "PSP-S"),
+        quo(ct_subcluster == "insula-excitatory-8" & clinical_dx == "PSP-S")
+    )
+)
+
 main <- function() {
     dir.create(out_path_base, recursive = TRUE)
     if (dir.exists(batchtools)) {
@@ -47,36 +117,6 @@ main <- function() {
             ct_subcluster = factor(ct_subcluster, levels = str_sort(unique(ct_subcluster), numeric = TRUE))
         )
  
-    # List of tests. Each pair of statements is evaluated by dplyr::filter on the metadata,
-    # and is used to set a new factor column named custom_split in the returned table.
-    # The second entry is always the background and will be the first level.
-    test_statements <- list(
-        "calcarine-exitatory-2-psp" = list(
-            quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "PSP-S"), 
-            quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx != "PSP-S")
-        ),
-        "insula-excitatory-2vs5-ftd" = list(
-            quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "bvFTD"), 
-            quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "bvFTD")
-        ),
-        "insula-excitatory-2vs5-all" = list(
-            quo(ct_subcluster == "insula-excitatory-2"), 
-            quo(ct_subcluster == "insula-excitatory-5")
-        ),
-        "insula-excitatory-2vs5-all-dx" = list(
-            quo(ct_subcluster == "insula-excitatory-2" & clinical_dx != "Control"), 
-            quo(ct_subcluster == "insula-excitatory-5" & clinical_dx != "Control")
-        ),
-        "insula-excitatory-2vs5-ctl" = list(
-            quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "Control"), 
-            quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "Control")
-        ),
-        "precg-microglia-1-ftd" = list(
-            quo(ct_subcluster == "preCG-microglia-1" & clinical_dx == "bvFTD"), 
-            quo(ct_subcluster == "preCG-microglia-1" & clinical_dx != "bvFTD")
-        )
-    )
-
     model_design <- "expression ~ custom_split + pmi + age + sex + number_umi + percent_mito + (1 | library_id)"
     
     subcluster_wk <- tibble(test_name = names(test_statements), test_quos = test_statements) %>%
@@ -97,7 +137,7 @@ main <- function() {
         mutate(chunk = chunk(job.id, chunk.size = chunk_size))
     subcluster_wk$job_id <- getJobTable()$job.id
     subcluster_wk$prop_detected_filter <- prop_detected_filter
-    setJobNames(subcluster_wk$job,id, as.character(subcluster_wk$test_name))
+    setJobNames(subcluster_wk$job_id, as.character(subcluster_wk$test_name))
     submitJobs(ids, resources = RESOURCES)
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_wk.rds"))
     waitForJobs()
