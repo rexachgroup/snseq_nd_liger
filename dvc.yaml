@@ -16,3 +16,15 @@ stages:
         outs:
             - ../analysis/seurat_lchen/liger_subcluster_metadata.rds
             - ../analysis/seurat_lchen/liger_subcluster_meta.csv
+    02-seurat-excitatory-layers:
+        cmd: Rscript seurat_excitatory_layers.R
+        wdir: code/
+        deps:
+            - seurat_excitatory_layers.R
+            - ../resources/excitatory_layers_20210318.csv
+            - ../analysis/pci_import/pci_seurat.rds
+        outs:
+            - ../analysis/seurat_lchen/seurat_excitatory_layers/ct_layer.csv
+            - ../analysis/seurat_lchen/seurat_excitatory_layers/excitatory_markers.pdf
+            - ../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds
+

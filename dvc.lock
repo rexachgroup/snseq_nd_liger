@@ -48,3 +48,25 @@ stages:
     - path: ../analysis/seurat_lchen/liger_subcluster_metadata.rds
       md5: 2fba1087355fe7eca0ad4231b99a38be
       size: 457429898
+  02-seurat-excitatory-layers:
+    cmd: Rscript seurat_excitatory_layers.R
+    deps:
+    - path: ../analysis/pci_import/pci_seurat.rds
+      md5: ab792d590aea4bd458943607589bfdd6
+      size: 39581782428
+    - path: ../resources/excitatory_layers_20210318.csv
+      md5: 984763aaa06969cdee1aaae79508d285
+      size: 702
+    - path: seurat_excitatory_layers.R
+      md5: 825c2f20c8aed8a871de1b9d163a0c76
+      size: 4057
+    outs:
+    - path: ../analysis/seurat_lchen/seurat_excitatory_layers/ct_layer.csv
+      md5: b5285deb180c36019782cb4479f74ecf
+      size: 7684
+    - path: ../analysis/seurat_lchen/seurat_excitatory_layers/excitatory_markers.pdf
+      md5: 66ba2e6eca1207bdb90c1734b153f405
+      size: 274883
+    - path: ../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds
+      md5: 1f90811b50565d840594f7a9bdf6031d
+      size: 406242445
