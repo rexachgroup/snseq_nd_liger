@@ -6,7 +6,7 @@ options(future.globals.maxSize = Inf, deparse.max.lines = 5)
 in_seurat_rds <-
   "../../analysis/pci_import/pci_seurat.rds"
 in_seurat_meta <-
-  "../../analysis/pci_import/pci_seurat_meta.rds"
+  "../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
 
 ## Outputs
 out_path_base <- "../../analysis/seurat_lchen/seurat_cluster_lme/"
@@ -37,7 +37,7 @@ main <- function() {
     # Subset seurat object.
     meta_subset <- meta %>%
         mutate( 
-            ct_cluster = paste(region, cluster_cell_type, sep = "-"),
+            ct_cluster = paste(region, cluster_celltype_layer, sep = "-"),
             log_number_umi = log(number_umi),
             filepath = in_seurat_rds,
             model_design = model_design
@@ -47,8 +47,6 @@ main <- function() {
         )
 
     # Split by cluster, then run lm_broom. 
-
-    # compute proportion detected per cluster.
     cluster_wk <- meta_subset %>%
         group_by(region, cluster_cell_type, ct_cluster) %>%
         group_nest(keep = TRUE)

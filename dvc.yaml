@@ -27,4 +27,14 @@ stages:
             - ../analysis/seurat_lchen/seurat_excitatory_layers/ct_layer.csv
             - ../analysis/seurat_lchen/seurat_excitatory_layers/excitatory_markers.pdf
             - ../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds
+    03-seurat-cluster-lme:
+        cmd: Rscript seurat_cluster_lme.R
+        wdir: code/seurat_cluster_dge
+        deps:
+            - seurat_cluster_lme.R
+            - "../../analysis/pci_import/pci_seurat.rds"
+            - "../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
+        outs:
+            - "../../analysis/seurat_lchen/seurat_cluster_lme/cluster_wk.rds"
+            - "../../analysis/seurat_lchen/seurat_cluster_lme/lme_tables"
 
