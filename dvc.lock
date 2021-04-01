@@ -90,3 +90,16 @@ stages:
       md5: 71c1b6565671b93ffe561211ddc27568.dir
       size: 136754381
       nfiles: 32
+  04-seurat-celltype-dge-overlap:
+    cmd: Rscript seurat_celltype_dge_overlap.R
+    deps:
+    - path: ../../analysis/seurat_lchen/seurat_cluster_lme/cluster_wk.rds
+      md5: c7ff71db5bc84572182716c7d33c098e
+      size: 116770587
+    - path: seurat_celltype_dge_overlap.R
+      md5: c516ec8cba5a421fb710653b066a9f64
+      size: 3537
+    outs:
+    - path: ../../analysis/seurat_lchen/seurat_cluster_lme/celltype_dge_overlaps.pdf
+      md5: 01d0452bba8cb84e9bf443984358987b
+      size: 322472

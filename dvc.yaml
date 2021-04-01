@@ -37,4 +37,11 @@ stages:
         outs:
             - "../../analysis/seurat_lchen/seurat_cluster_lme/cluster_wk.rds"
             - "../../analysis/seurat_lchen/seurat_cluster_lme/lme_tables"
-
+    04-seurat-celltype-dge-overlap:
+        cmd: Rscript seurat_celltype_dge_overlap.R
+        wdir: code/seurat_cluster_plots
+        deps:
+            - seurat_celltype_dge_overlap.R
+            - "../../analysis/seurat_lchen/seurat_cluster_lme/cluster_wk.rds"
+        outs:
+            - ../../analysis/seurat_lchen/seurat_cluster_lme/celltype_dge_overlaps.pdf
