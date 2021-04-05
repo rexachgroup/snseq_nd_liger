@@ -18,8 +18,15 @@ liger_metadata <- map(rdats_filtered, function(rdat_path) {
     return(meta)
 })
 
-liger_tb <- bind_rows(liger_metadata)
+liger_tb <- bind_rows(liger_metadata) %>% 
+    mutate( 
+        liger_clusters = fct_inseq(liger_clusters),
+        ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-")
+    ) %>%
+    mutate(
+        ct_subcluster = factor(ct_subcluster, levels = str_sort(unique(ct_subcluster), numeric = TRUE))
+    )
 
 saveRDS(liger_tb, file.path(OUT_DIR, "liger_subcluster_metadata.rds"), compress = FALSE)
-write_csv(liger_tb, file.path(OUT_DIR, "liger_subcluster_meta.csv"))
+write_csv(liger_tb, file.path(OUT_DIR, "liger_subcluster_metadata.csv"))
 gc()

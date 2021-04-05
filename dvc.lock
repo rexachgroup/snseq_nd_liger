@@ -39,15 +39,15 @@ stages:
       size: 19270234545
       nfiles: 75
     - path: liger_seurat_import.R
-      md5: 0b0018a18bffa72ec382f2a0acbc8ae6
-      size: 766
+      md5: 38c4a7d066b6b5015182d1ec1bde8baf
+      size: 1056
     outs:
-    - path: ../analysis/seurat_lchen/liger_subcluster_meta.csv
-      md5: 6d35b6c061a8b0946e535f04b84b3565
-      size: 418643117
+    - path: ../analysis/seurat_lchen/liger_subcluster_metadata.csv
+      md5: 9818060cbf3cd8793fb82cb838aec119
+      size: 431127437
     - path: ../analysis/seurat_lchen/liger_subcluster_metadata.rds
-      md5: 2fba1087355fe7eca0ad4231b99a38be
-      size: 457429898
+      md5: 58eaf2a056c53dfd755e1ecbdf47e656
+      size: 459799244
   02-seurat-excitatory-layers:
     cmd: Rscript seurat_excitatory_layers.R
     deps:

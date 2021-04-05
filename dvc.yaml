@@ -15,7 +15,7 @@ stages:
             - liger_seurat_import.R
         outs:
             - ../analysis/seurat_lchen/liger_subcluster_metadata.rds
-            - ../analysis/seurat_lchen/liger_subcluster_meta.csv
+            - ../analysis/seurat_lchen/liger_subcluster_metadata.csv
     02-seurat-excitatory-layers:
         cmd: Rscript seurat_excitatory_layers.R
         wdir: code/
