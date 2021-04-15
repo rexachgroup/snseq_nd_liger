@@ -24,8 +24,8 @@ RESOURCES <- list(
 prop_detected_filter <- 0.1
 chunk_size <- 1
 
-# List of tests. Each pair of statements is evaluated by dplyr::filter on the metadata,
-# and is used to set a new factor column named custom_split in the returned table.
+# List of tests. Each pair of statements is evaluated on the metadata,
+# and is used to set a new factor column named custom_split for data input to LME.
 # The second entry is always the background and will be the first level.
 test_statements <- list(
     "calcarine-exitatory-2-psp" = list(
@@ -91,7 +91,15 @@ test_statements <- list(
     "insula-excitatory-13vs8-psp" = list(
         quo(ct_subcluster == "insula-excitatory-13" & clinical_dx == "PSP-S"),
         quo(ct_subcluster == "insula-excitatory-8" & clinical_dx == "PSP-S")
-    )
+    ),
+    "preCG-excitatory-5vs7-ctl" =  list(quo(ct_subcluster == "preCG-excitatory-5"  & clinical_dx == "Control"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "Control")),
+    "preCG-excitatory-5vs7-ad" =   list(quo(ct_subcluster == "preCG-excitatory-5"  & clinical_dx == "AD"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "AD")),
+    "preCG-excitatory-18vs7-ctl" = list(quo(ct_subcluster == "preCG-excitatory-18" & clinical_dx == "Control"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "Control")),
+    "preCG-excitatory-18vs7-ad" =  list(quo(ct_subcluster == "preCG-excitatory-18" & clinical_dx == "AD"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "AD")),
+    "preCG-excitatory-18vs7-psp" = list(quo(ct_subcluster == "preCG-excitatory-18" & clinical_dx == "bvFTD"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "bvFTD")),
+    "preCG-excitatory-18vs7-ftd" = list(quo(ct_subcluster == "preCG-excitatory-18" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "PSP-S")),
+    "preCG-excitatory-4vs14-ctl" = list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "Control"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "Control")),
+    "preCG-excitatory-4vs14-ad" =  list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "AD"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "AD"))
 )
 
 main <- function() {
@@ -120,15 +128,26 @@ main <- function() {
     model_design <- "expression ~ custom_split + pmi + age + sex + number_umi + percent_mito + (1 | library_id)"
     
     subcluster_wk <- tibble(test_name = names(test_statements), test_quos = test_statements) %>%
-        mutate(split_meta = map(test_statements, function(statement) { 
-            split_tb <- make_split(liger_meta_subset, statement[[1]], statement[[2]]) 
-            split_tb$model_design = model_design
-            return(split_tb)
-        }))
+        mutate(
+            split_meta = pmap(., function(...) { 
+                cr <- list(...)
+                writeLines(cr$test_name)
+                split_tb <- make_split(liger_meta_subset, cr$test_quos[[1]], cr$test_quos[[2]]) 
+                split_tb$model_design = model_design
+                return(split_tb)
+            }),
+            filepath = file.path(out_path_base, "lme_tables", paste0(test_name, ".csv"))
+        )
+
+    writeLines("already exist, dropping test:")
+    subcluster_wk %>%
+        filter(file.exists(filepath)) %>%
+        pluck("filepath") %>%
+        writeLines
+    subcluster_wk <- filter(subcluster_wk, !file.exists(filepath))
 
     clearRegistry()
-    batchExport(list(run_lmer_de = run_lmer_de, run_lmer = run_lmer,
-                     prop_detected_generate = prop_detected_generate, prop_cells_detected_dx = prop_cells_detected_dx), reg = reg)
+    batchExport(mget(ls()), reg = reg)
     ids <- batchMap(subcluster_worker,
         args = list(meta = subcluster_wk$split_meta),
         more.args = list(prop_detected_filter = prop_detected_filter)
@@ -151,17 +170,10 @@ main <- function() {
                 writeLines(paste(current_row$job_id))
                 format_lm_output(broom_list, current_row$split_meta, "split")
             }))
+ 
+    saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_lme.rds"))
 
-    subcluster_tb <- subcluster_wk %>%
-        mutate(filepath = file.path(
-                out_path_base,
-                "lme_tables",
-                paste0(test_name, ".csv")
-            ))
-    
-    saveRDS(subcluster_tb, file.path(out_path_base, "subcluster_lme.rds"))
-
-    pwalk(subcluster_tb, function(...) {
+    pwalk(subcluster_wk, function(...) {
         current_row <- list(...)
         dir.create(dirname(current_row$filepath), recursive = TRUE, showWarnings = FALSE)
         writeLines(current_row$filepath)
