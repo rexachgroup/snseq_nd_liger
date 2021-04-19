@@ -12,7 +12,7 @@ in_subcluster_celltype_filter <-
 
 ## Outputs
 out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_lme/"
-batchtools <- file.path(out_path_base, "batchtools2")
+batchtools <- file.path(out_path_base, "batchtools")
 dir.create(out_path_base, recursive = TRUE)
 
 RESOURCES <- list(
