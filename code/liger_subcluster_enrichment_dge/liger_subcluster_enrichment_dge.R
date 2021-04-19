@@ -16,13 +16,13 @@ batchtools <- file.path(out_path_base, "batchtools")
 dir.create(out_path_base, recursive = TRUE)
 
 RESOURCES <- list(
-    ncpus = 1,
+    ncpus = 16,
     memory = 80,
     walltime = 172800,
     measure.memory = TRUE
 )
-prop_detected_filter <- 0.2
-chunk_size <- 40
+prop_detected_filter <- 0.1
+chunk_size <- 30
 
 main <- function() {
     if (dir.exists(batchtools)) {
@@ -64,8 +64,7 @@ main <- function() {
         select(-data.x) %>% rename(data = data.y)
 
     clearRegistry()
-    batchExport(list(run_lmer_enrichment_de = run_lmer_enrichment_de, run_lmer = run_lmer, 
-        prop_detected_generate = prop_detected_generate, RESOURCES = RESOURCES))
+    batchExport(mget(ls()))
 
     ids <- batchMap(subcluster_worker,
         args = list(test_cluster = subcluster_wk$liger_clusters, meta = subcluster_wk$data),
@@ -170,8 +169,6 @@ run_lmer <- function(expr_m, test_vars, model, cores = NULL) {
     if (!is.null(cores)) {
         plan(multicore, workers = cores)
     }
-    #     lm_out_obj_l <- future_apply(1:nrow(expr_m), FUN = function(i){
-    #         dat <- data.frame(expression = as.vector(expr_m[i, ]), test_vars)
     lm_out_obj_l <- future_apply(X = expr_m, MARGIN = 1, FUN = function(expr_r) {
         dat <- data.frame(expression = as.vector(expr_r), test_vars)
         # use tryCatch to return NA when model can't be fit for a gene
@@ -190,8 +187,8 @@ prop_detected_generate <- function(meta, subcluster_so) {
     expr_m <- GetAssayData(subcluster_so, slot = "data")
 
     expr_cells_gz <- rowSums(expr_m > 0)
-    frac_gz <- expr_cells_gz / ncol(expr_m)
-    prop_detected_all <- enframe(frac_gz, name = "gene", value = "prop_detected_all")
+    frac_gz <- as.double(expr_cells_gz) / ncol(expr_m)
+    prop_detected_all <- tibble(gene = rownames(expr_m), prop_detected_all = frac_gz)
 
     return(prop_detected_all)
 }
