@@ -99,7 +99,9 @@ test_statements <- list(
     "preCG-excitatory-18vs7-psp" = list(quo(ct_subcluster == "preCG-excitatory-18" & clinical_dx == "bvFTD"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "bvFTD")),
     "preCG-excitatory-18vs7-ftd" = list(quo(ct_subcluster == "preCG-excitatory-18" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-excitatory-7" & clinical_dx == "PSP-S")),
     "preCG-excitatory-4vs14-ctl" = list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "Control"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "Control")),
-    "preCG-excitatory-4vs14-ad" =  list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "AD"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "AD"))
+    "preCG-excitatory-4vs14-ad" =  list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "AD"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "AD")),
+    "preCG-microglia-4-alldx-vs-ctl" =  list(quo(ct_subcluster == "preCG-microglia-4" & clinical_dx != "Control"), quo(ct_subcluster == "preCG-microglia-4" & clinical_dx == "Control")),
+    "preCG-microglia-1-ftd-vs-ad-ctl" = list(quo(ct_subcluster == "preCG-microglia-1" & clinical_dx == "bvFTD"),   quo(ct_subcluster == "preCG-microglia-1" & clinical_dx %in% c("AD", "Control")))
 )
 
 main <- function() {
@@ -139,7 +141,7 @@ main <- function() {
             filepath = file.path(out_path_base, "lme_tables", paste0(test_name, ".csv"))
         )
 
-    writeLines("already exist, dropping test:")
+    writeLines("dropping existing tests:")
     subcluster_wk %>%
         filter(file.exists(filepath)) %>%
         pluck("filepath") %>%
