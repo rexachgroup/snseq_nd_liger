@@ -7,14 +7,19 @@ OUT_DIR <- "../../analysis/seurat_lchen/subcluster_composition/limma/"
 SUBCLUSTER_FILTER_FILE <- "../../analysis/seurat_lchen/liger_subcluster_filtered_props.rds"
 if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR)
 
-meta <- readRDS(META_FILE)
+meta_tb <- readRDS(META_FILE)
 percluster_tb <- readRDS(SUBCLUSTER_FILTER_FILE) %>% 
     filter(subcluster_3libs_above_10umi) %>%
-    mutate(ct_subcluster = paste(region, ct_subcluster, sep = "-"))
+    mutate(ct_subcluster = paste(region, ct_subcluster, sep = "-")) %>%
+    mutate(ct_subcluster = fct_collapse(ct_subcluster, "calcarine-excitatory-210" = c("calcarine-excitatory-2", "calcarine-excitatory-10")))
 
-meta <- meta %>%
+# lump together calcarine-excitatory-2 and calcarine-excitatory-10
+meta <- meta_tb %>%
     mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-"),
-        clinical_dx = fct_relevel(clinical_dx, "Control"))
+        clinical_dx = fct_relevel(clinical_dx, "Control")) %>%
+    mutate(ct_subcluster = fct_collapse(ct_subcluster, "calcarine-excitatory-210" = c("calcarine-excitatory-2", "calcarine-excitatory-10")),
+        liger_clusters = ifelse((region == "calcarine" & cluster_cell_type == "excitatory"), 210, liger_clusters)
+    )
 
 ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_dx == "Control")) %>% filter(ctl == TRUE)
 
@@ -22,7 +27,7 @@ ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_
 library_subcluster_counts <- meta %>%
     filter(cluster_cell_type == cell_type,
            ct_subcluster %in% percluster_tb$ct_subcluster,
-           ct_subcluster %in% ctl_filter$ct_subcluster) %>%
+           ct_subcluster %in% ctl_filter$ct_subcluster,) %>%
     group_by(region, library_id, ct_subcluster) %>%
     summarize(cell_type = unique(cell_type), 
               liger_cluster = unique(liger_clusters),
@@ -137,8 +142,7 @@ summarize_limma <- function(tb) {
                     inner_join(s2, by = "ct_subcluster")
             })
         ) %>%
-        unnest(limma_cmb) %>%
-        glimpse
+        unnest(limma_cmb)
 }
 
 write_limma <- function(tb, path) {
@@ -147,7 +151,6 @@ write_limma <- function(tb, path) {
         select(-data, -matrix, -limma, -limma_bayes, -limma_pval, -limma_beta, -limma_sigma) %>%
         write_tsv(path)
 }
-
 
 limma_dx_pmi <- limma_fit_contrast(library_cluster_mats, 
     form = "~0 + dx + pmi + age + sex + mean_percent_mito + median_genes")
