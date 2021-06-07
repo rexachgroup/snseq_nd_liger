@@ -39,7 +39,8 @@ main <- function() {
 
     filtered_gene_tests <- full_join(cluster_wk, filter_args, by = character())
     glimpse(filtered_gene_tests)
-
+    
+    # rename cols from each dx's broom result to beta, pval, fdr, z.
     filter_call <- function(...) {
         cr <- list(...)
         beta_col <- cr$clinical_dx_beta_cols
@@ -58,6 +59,7 @@ main <- function() {
         mutate(lme_marker_estimates = pmap(., filter_call)) %>%
         glimpse
     
+    # Filter down to marker gene list. Add fdr and stars columns.
     plot_gene_list <- filtered_gene_list %>%
         select(region, dx, cluster_cell_type, ct_subcluster, lme_marker_estimates) %>%
         unnest(lme_marker_estimates) %>%
@@ -75,6 +77,7 @@ main <- function() {
     #     plot_gene_list_nafill <- plot_gene_list %>%
     #         complete(gene, nesting(region, dx, ct_subcluster))
 
+    # Begin ComplexHeatmap formatting
     plot_matrix_fill <- pivot_matrix(plot_gene_list, "column_id", "z", "gene")
     plot_matrix_text <- pivot_matrix(plot_gene_list, "column_id", "stars", "gene")
 
@@ -143,6 +146,7 @@ pivot_matrix <- function(tb, cols_from, values_from, rows_from) {
     return(tb_matrix)
 }
 
+# Override n >= lp in p.adjust
 p.adjust <- function (p, method = p.adjust.methods, n = length(p)) {
     method <- match.arg(method)
     if (method == "fdr")
