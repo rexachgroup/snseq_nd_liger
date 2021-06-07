@@ -4,26 +4,26 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - r-eulerr
-  - r-matrix
-  - r-liger=0.5.0.9000
-  - r-seurat=4.0.0
-  - r-spatstat=1.64_1
-  - bioconductor-variancepartition
-  - r-broom.mixed
-  - r-cowplot
-  - r-ggcorrplot
   - r-lmertest
-  - bioconductor-complexheatmap
-  - r-tidyverse
-  - bioconductor-edger
+  - r-liger=0.5.0.9000
   - r-batchtools
-  - r-ggfortify
-  - r-ggpubr
-  - r-ggally
-  - r-ggrastr
-  - r-viridis
-  - r-wgcna
   - bioconductor-impute
+  - r-broom.mixed
+  - r-eulerr
+  - bioconductor-edger
+  - r-tidyverse
+  - r-ggcorrplot
+  - r-cowplot
+  - r-ggally
+  - r-matrix
+  - bioconductor-complexheatmap
+  - r-ggrastr
+  - r-ggpubr
+  - r-wgcna
+  - bioconductor-variancepartition
+  - r-viridis
+  - r-seurat=4.0.0
+  - r-ggfortify
+  - r-spatstat=1.64_1
   - dvc
 prefix: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
