@@ -7,18 +7,21 @@ options(future.globals.maxSize = Inf)
 
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
 excitatory_markers <- read_csv("../../resources/excitatory_markers_20191023.csv")
-excitatory_markers2 <- read_csv("../../resources/excitatory_layers_20210318.csv")
+calcarine_exclude <- read_csv("../../resources/excitatory_markers_calcarine_exclude.csv")
 out_dir <- "../../analysis/seurat_lchen/seurat_excitatory_layers/"
-seurat_excitatory_meta <- readRDS("../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds")
-liger_meta <- readRDS("../../analysis/seurat_lchen/liger_subcluster_metadata.rds")
 in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
+seurat_excitatory <- "../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
+liger <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 
 main <- function() {
+    seurat_excitatory_meta <- readRDS(seurat_excitatory)
+    liger_meta <- readRDS(liger)
     liger_assign <- select(liger_meta, liger_clusters, cell_ids)
     meta <- as_tibble(inner_join(seurat_excitatory_meta, liger_assign, by = "cell_ids"))
     marker_tb <- excitatory_markers %>%
         filter(!is.na(gene_symbol)) %>%
-        filter(!duplicated(gene_symbol))
+        filter(!duplicated(gene_symbol)) %>%
+        arrange(marker_for, gene_symbol)
     sobj <- readRDS(in_seurat_rds)
     excludes <- read_xlsx(clusters_exclude_file)
 
@@ -34,11 +37,16 @@ main <- function() {
         group_walk(function(.x, .y) {
             out_path <- file.path(out_dir, str_glue("seurat_excitatory_heatmap_{unique(.x$region)}.pdf"))
             writeLines(out_path)
-            heatmap_worker(sobj, .x, out_path)
+            if (unique(.x$region == "calcarine")) {
+                markers <- anti_join(marker_tb, calcarine_exclude, by = "gene_symbol")
+            } else {
+                markers <- marker_tb
+            }
+            heatmap_worker(sobj, .x, markers, out_path)
         }, .keep = TRUE)
 }
 
-heatmap_worker <- function(sobj, excitatory_meta, out_path) {
+heatmap_worker <- function(sobj, excitatory_meta, marker_tb, out_path) {
     clust_summary_tb <- excitatory_meta %>%
         group_by(ct_subcluster) %>%
         group_nest %>%
@@ -94,6 +102,7 @@ heatmap_worker <- function(sobj, excitatory_meta, out_path) {
         cluster_rows = FALSE,
         top_annotation = col_annot_obj,
         right_annotation = row_annotation_obj,
+        row_split = row_annotation_df$marker_for,
         row_title = str_glue("Marker genes excitatory_layers_20191023.csv"),
         column_title = "Liger clusters",
         column_title_side = c("bottom"),
@@ -128,4 +137,6 @@ pivot_matrix <- function(tb, cols_from, values_from, rows_from) {
     return(tb_matrix)
 }
 
-
+if (!interactive()) {
+    main()
+}
