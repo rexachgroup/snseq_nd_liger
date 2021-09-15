@@ -103,3 +103,23 @@ stages:
     - path: ../../analysis/seurat_lchen/seurat_cluster_lme/celltype_dge_overlaps.pdf
       md5: 01d0452bba8cb84e9bf443984358987b
       size: 322472
+  seurat-umap:
+    cmd: Rscript seruat_umap.R
+    deps:
+    - path: ../analysis/pci_import/pci_seurat.rds
+      md5: ab792d590aea4bd458943607589bfdd6
+      size: 39581782428
+    - path: ../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds
+      md5: 1f90811b50565d840594f7a9bdf6031d
+      size: 406242445
+    - path: ../resources/Immune_markers_toplot_2021.xlsx
+      md5: f24601bb14c9361cadc7292baba673e0
+      size: 10255
+    - path: seurat_umap.R
+      md5: b0aeecad78b2fb09e14feb7d4522a734
+      size: 4450
+    outs:
+    - path: ../analysis/seurat_lchen/seurat_umap/
+      md5: 092d0be61258b265bf1146a616e0fdcd.dir
+      size: 418823370
+      nfiles: 4

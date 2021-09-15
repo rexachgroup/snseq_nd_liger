@@ -45,3 +45,15 @@ stages:
             - "../../analysis/seurat_lchen/seurat_cluster_lme/cluster_wk.rds"
         outs:
             - ../../analysis/seurat_lchen/seurat_cluster_lme/celltype_dge_overlaps.pdf
+    seurat-umap:
+        cmd: Rscript seruat_umap.R
+        wdir: code/
+        deps:
+            - seurat_umap.R
+            - "../analysis/pci_import/pci_seurat.rds"
+            - "../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
+            - "../resources/Immune_markers_toplot_2021.xlsx"
+        outs:
+            - "../analysis/seurat_lchen/seurat_umap/"
+
+
