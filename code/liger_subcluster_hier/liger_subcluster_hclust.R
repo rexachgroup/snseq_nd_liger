@@ -4,7 +4,7 @@
 set.seed(0)
 liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "scales")
 l <- lapply(liblist, function(x) suppressPackageStartupMessages(require(x, character.only = TRUE, quietly = TRUE)))
-out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier"
+out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier/hclust"
 
 in_cluster_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/subcluster_wk.rds"
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
