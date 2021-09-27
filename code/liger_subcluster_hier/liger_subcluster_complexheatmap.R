@@ -17,7 +17,7 @@ excitatory_markers <- "../../resources/excitatory_layers_20210318.csv"
 out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier/heatmap"
 options(future.globals.maxSize = Inf)
 
-plot_ts <- 
+plot_ts <- str_glue("placeholder")
 
 main <- function() {
     dir.create(out_path_base, recursive = TRUE, showWarnings = FALSE)
@@ -44,20 +44,20 @@ main <- function() {
     filter(!is.na(dge_data))
 
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = FALSE))
-    cluster_ct_group <- mutate(cluster_ct_group, violin_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
-    cluster_ct_group <- mutate(cluster_ct_group, barplot_data = map(liger_meta, mk_barplot_data))
+    cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
+    cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
     
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = map(dge_plot_tb, mk_beta_heatmap))
-    cluster_ct_group <- mutate(cluster_ct_group, violin_annot = map(violin_data, mk_gene_annot))
-    cluster_ct_group <- mutate(cluster_ct_group, counts_annot = map(barplot_data, mk_counts_annot))
-    cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(list(dge_base_heatmap, violin_annot, counts_annot), mk_combo_heatmap))
+    cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
+    cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(list(dge_base_heatmap, gene_expr_annot, cluster_counts_annot), mk_combo_heatmap))
 
     pwalk(cluster_ct_group, function(...) {
         cr <- list(...)
         heatmap_path <- file.path(out_path_base, str_glue("dge_enrichment_{cr$cluster_cell_type}_var_beta_heatmap.pdf"))
 
         pdf(heatmap_path, width = unit(10, "mm"), height = unit(20, "mm"))
-        test <- draw(cr$dge_combo_heatmap, heatmap_legend_list = cr$counts_annot$legends)
+        test <- draw(cr$dge_combo_heatmap, heatmap_legend_list = cr$cluster_counts_annot$legends)
         graphics.off()
         print(heatmap_path)
     })
@@ -156,7 +156,7 @@ mk_gene_annot <- function(violin_data) {
     })
 }
 
-mk_barplot_data  <- function(liger_meta) {
+mk_cluster_counts_data  <- function(liger_meta) {
     cell_count <- liger_meta %>%
         group_by(ct_subcluster) %>%
         summarize(n = n())
@@ -180,8 +180,8 @@ pal_stallion <- c("1"="#D51F26","2"="#272E6A","3"="#208A42","4"="#89288F","5"="#
                 "10"="#90D5E4", "11"="#89C75F","12"="#F37B7D","13"="#9983BD","14"="#D24B27","15"="#3BBCA8", "16"="#6E4B9E","17"="#0C727C", "18"="#7E1416","9"="#D8A767","20"="#3D3D3D")
 
 # make annotations based on cell counts.
-# adding legends using annotation_legend_param is not supported -- return as list to plot later down the line
-mk_counts_annot <- function(count_data) {
+# adding a legend using annotation_legend_param is not supported for anno_barplot -- return as list to plot later down the line
+mk_cluster_counts_annot <- function(count_data) {
     dx_names <- colnames(count_data$cell_dx_count)
     dx_annot_colors <- pal_stallion[1:length(dx_names)]
     return(
@@ -213,12 +213,12 @@ mk_counts_annot <- function(count_data) {
     )
 }
 
-mk_combo_heatmap <- function(base_heatmap, violin_annots, counts_annot) {
+mk_combo_heatmap <- function(base_heatmap, gene_expr_annots, cluster_counts_annot) {
     hmap <- base_heatmap
-    for (annot in violin_annots) {
+    for (annot in gene_expr_annots) {
         hmap <- hmap %v% annot
     }
-    for (annot in counts_annot$annotations) {
+    for (annot in cluster_counts_annot$annotations) {
         hmap <- hmap %v% annot
     }
     # names are dropped after adding annotations. recover by manually adding text annotation.
@@ -245,3 +245,6 @@ pivot_matrix <- function(tb, cols_from, values_from, rows_from, fill_na = NA) {
     return(tb_matrix)
 }
 
+if (!interactive()) {
+    main()
+}
