@@ -150,10 +150,15 @@ mk_gene_data <- function(liger_meta, sobj, annot_gene_list) {
 }
 
 #   - pass to columnAnnotation to create one violin plot per subcluster.
-mk_gene_annot <- function(violin_data) {
-    imap(violin_data, function(subcluster_expr_vec_list, gene_name) { 
-        columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "heatmap"), name = gene_name, annotation_label = gene_name, annotation_height = unit(15, "mm"))
+mk_gene_annot <- function(gene_data) {
+    annotation_height <- unit(15, "mm")
+    heatmaps <- imap(gene_data, function(subcluster_expr_vec_list, gene_name){
+        columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "heatmap"), annotation_label = gene_name, annotation_height = annotation_height)
     })
+    violins <- imap(gene_data, function(subcluster_expr_vec_list, gene_name){
+        columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "violin"), annotation_label = gene_name, annotation_height = annotation_height)
+    })
+    return(c(heatmaps, violins))
 }
 
 mk_cluster_counts_data  <- function(liger_meta) {
