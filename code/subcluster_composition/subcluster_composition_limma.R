@@ -11,16 +11,11 @@ main <- function() {
     meta_tb <- readRDS(META_FILE)
     percluster_tb <- readRDS(SUBCLUSTER_FILTER_FILE) %>% 
         filter(subcluster_3libs_above_10umi) %>%
-        mutate(ct_subcluster = paste(region, ct_subcluster, sep = "-")) %>%
-        mutate(ct_subcluster = fct_collapse(ct_subcluster, "calcarine-excitatory-210" = c("calcarine-excitatory-2", "calcarine-excitatory-10")))
+        mutate(ct_subcluster = paste(region, ct_subcluster, sep = "-"))
 
-    # lump together calcarine-excitatory-2 and calcarine-excitatory-10
     meta <- meta_tb %>%
         mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-"),
-            clinical_dx = fct_relevel(clinical_dx, "Control")) %>%
-        mutate(ct_subcluster = fct_collapse(ct_subcluster, "calcarine-excitatory-210" = c("calcarine-excitatory-2", "calcarine-excitatory-10")),
-            liger_clusters = ifelse((region == "calcarine" & cluster_cell_type == "excitatory"), 210, liger_clusters)
-        )
+            clinical_dx = fct_relevel(clinical_dx, "Control"))
 
     ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_dx == "Control")) %>% filter(ctl == TRUE)
 
