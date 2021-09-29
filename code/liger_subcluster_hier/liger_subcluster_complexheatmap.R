@@ -2,30 +2,36 @@
 # 1. violin plot of expression values of selected genes.
 # 2. counts of genes / cells per cluster.
 
-# GFAP DPP10
-# SLC1A2 SLC2A3 GPC5 SOX5
-# HPSE2 CACNB2
-
 set.seed(0)
 liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "RColorBrewer", "scales")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 in_cluster_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/subcluster_wk.rds"
+in_limma <- "../../analysis/seurat_lchen/subcluster_composition/limma/subcluster_composition_dx_pmi.rds"
 in_seurat_liger <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
 excitatory_markers <- "../../resources/excitatory_layers_20210318.csv"
 out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier/heatmap"
+batchtools <- file.path(out_path_base, "batchtools")
 options(future.globals.maxSize = Inf)
 
-plot_ts <- str_glue("placeholder")
+plot_ts <- str_glue("{system('md5sum liger_subcluster_complexheatmap.R', intern = TRUE)}")
 
 main <- function() {
     dir.create(out_path_base, recursive = TRUE, showWarnings = FALSE)
+
+    if (!dir.exists(batchtools)) {
+        reg <- makeRegistry(batchtools)
+    } else {
+        reg <- loadRegistry(batchtools)
+    }
+
     seurat_obj <- readRDS(in_seurat_rds)
     cluster_wk_in <- readRDS(in_cluster_dge_wk)
     liger_meta <- readRDS(in_seurat_liger)
     excludes <- read_xlsx(clusters_exclude_file)
-    marker_tb <- read_csv(excitatory_markers)
+    limma_tb <- readRDS(in_limma)
+    #marker_tb <- read_csv(excitatory_markers)
     #annot_gene_list <- unique(marker_tb$gene_symbol)
     #annot_gene_list <- c("GFAP", "DPP10", "SLC1A2", "SLC1A3", "GP5", "SOX5", "HPSE2", "CACNB2")
     annot_gene_list <- c("RORB", "KCNH7", "OPTN", "TMEM106B", "GPC5", "GPC6", "GRM8", "GPC4")
@@ -46,21 +52,24 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = FALSE))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
     
-    cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = map(dge_plot_tb, mk_beta_heatmap))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
-    cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(list(dge_base_heatmap, gene_expr_annot, cluster_counts_annot), mk_combo_heatmap))
+    cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_annot = pmap(list(dge_data, dge_hclust), mk_cluster_limma_annot, limma_tb))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(list(dge_base_heatmap, dge_hclust, gene_expr_annot, cluster_counts_annot, cluster_limma_annot), mk_combo_heatmap))
 
     pwalk(cluster_ct_group, function(...) {
         cr <- list(...)
         heatmap_path <- file.path(out_path_base, str_glue("dge_enrichment_{cr$cluster_cell_type}_var_beta_heatmap.pdf"))
 
-        pdf(heatmap_path, width = unit(10, "mm"), height = unit(20, "mm"))
-        test <- draw(cr$dge_combo_heatmap, heatmap_legend_list = cr$cluster_counts_annot$legends)
+        pdf(heatmap_path, width = unit(15, "mm"), height = unit(20, "mm"))
+        test <- draw(cr$dge_combo_heatmap, heatmap_legend_list = c(cr$cluster_counts_annot$legends, cr$cluster_limma_annot$legends))
         graphics.off()
         print(heatmap_path)
     })
+
 }
 
 fmt_cluster_dge <- function(cluster_wk) {
@@ -101,11 +110,13 @@ filter_var_genes <- function(dge_data, filter_genes_all_regions = FALSE) {
     return(dge_plot_tb)
 }
 
-mk_beta_heatmap <- function(dge_plot_tb, beta_hclust = NULL) { 
+mk_dge_hclust <- function(dge_plot_tb) {
     dge_beta_matrix <- pivot_matrix(dge_plot_tb, "ct_subcluster", "beta", "gene")
-    if (is.null(beta_hclust)) {
-        beta_hclust <- hclust(dist(t(dge_beta_matrix)))
-    }
+    hclust(dist(t(dge_beta_matrix)))
+}
+
+mk_beta_heatmap <- function(dge_plot_tb, beta_hclust) { 
+    dge_beta_matrix <- pivot_matrix(dge_plot_tb, "ct_subcluster", "beta", "gene")
     colormap <- colorRamp2(
         breaks = c(min(dge_beta_matrix, na.rm = TRUE), 0, max(dge_beta_matrix, na.rm = TRUE)),
         colors = c(muted("blue"), "white", muted("red"))
@@ -125,16 +136,19 @@ mk_beta_heatmap <- function(dge_plot_tb, beta_hclust = NULL) {
 }
 
 # - Subset seurat object to cells in dge_plot_tb / genes in annot_gene_list.
+# - Regress out variables for display purposes using negative binomial model.
 # - For each gene, get expression matrix and convert to tibble with cols expr / umi.
 #   - join with cell types' metadata and split along ct_subcluster to get a list of vectors containing each subclusters' expression values.
 # Returns a list of lists:
-# - names(x) is gene names in annot_gene list.
-# - names(x[[1]]) is subclusters in liger_meta.
-# - x[[1]] is a vector of gene expression values for each subcluster.
+# - names(x) is gene names in annot_gene_list.
+# - names(x[[*]]) is subclusters in liger_meta.
+# - x[[*]] is a vector of gene expression values for each subcluster.
 mk_gene_data <- function(liger_meta, sobj, annot_gene_list) {
     feature_list <- intersect(annot_gene_list, rownames(seurat_obj))
-    #subset_sobj <- subset(sobj, cells = liger_meta$UMI, features = feature_list)
+    subset_sobj <- subset(sobj, cells = liger_meta$UMI, features = feature_list)
+    #sobj_scaled <- ScaleData(subset_sobj, model.use = "negbinom", vars.to.regress = c("pmi", "age", "sex", "number_umi", "percent_mito"), assay = "RNA")
     sobj_mat <- GetAssayData(sobj, slot = "scale.data")
+
     feature_list <- intersect(annot_gene_list, rownames(sobj_mat))
     subcluster_expr_vecs <- map(feature_list, function(gene_name) {
         gene_expr_tb <- sobj_mat[gene_name,] %>% as.data.frame %>% rename(gene_expr = '.') %>% rownames_to_column("UMI") 
@@ -218,7 +232,63 @@ mk_cluster_counts_annot <- function(count_data) {
     )
 }
 
-mk_combo_heatmap <- function(base_heatmap, gene_expr_annots, cluster_counts_annot) {
+# make dotplot showing limma results.
+# anno_points doesn't rearrange columns to match the heatmaps' subcluster order -- reorder the matrix manually.
+mk_cluster_limma_annot <- function(dge_data, dge_hclust, limma_tb) {
+    subclusters <- dge_data %>% summarize(ct_subcluster = as.character(unique(ct_subcluster)))
+    limma_filter <- limma_tb %>%
+        select(-data, -matrix, -limma, -limma_bayes) %>%
+        unnest(limma_pval) %>%
+        right_join(subclusters, by = c("ct_subcluster"))
+
+    # format single dx v. control p values.
+    limma_single_dx <- pivot_longer(limma_filter, cols = matches("^pvaldx.*Control$"), names_to = "type", values_to = "value") %>%
+        select(ct_subcluster, type, value) %>%
+        mutate(value = -log10(value))
+
+    # format single dx v. all p values.
+    limma_all_ct_dx <- pivot_longer(limma_filter, cols = matches("^pvaldx.*/ 3$"), names_to = "type", values_to = "value") %>%
+        select(ct_subcluster, type, value) %>%
+        mutate(value = -log10(value))
+
+    # format as matrix form; reorder rows according to dge hclust
+    limma_single_dx_mat <- pivot_matrix(limma_single_dx, "type", "value", "ct_subcluster")
+    limma_all_ct_mat <- pivot_matrix(limma_all_ct_dx, "type", "value", "ct_subcluster")
+    limma_single_dx_mat <- limma_single_dx_mat[dge_hclust$order, ]
+    limma_all_ct_mat <- limma_all_ct_mat[dge_hclust$order, ]
+
+    # pick from pal_stallion palette.
+    single_dx_colors <- pal_stallion[1:ncol(limma_single_dx_mat)]
+    all_ct_colors <- pal_stallion[1:ncol(limma_all_ct_mat)]
+    
+    ylim_common <- c(0, max(limma_single_dx_mat, limma_all_ct_mat, na.rm = TRUE))
+
+    return(
+        list(
+            annotations = list(
+                single_dx = columnAnnotation(
+                    single_dx = anno_points(limma_single_dx_mat, which = "column", gp = gpar(col = single_dx_colors), ylim = ylim_common),
+                    annotation_label = "limma\ndx v. ctl",
+                    annotation_name_rot = 90,
+                    annotation_height = unit(20, "mm")
+                ),
+                all_ct = columnAnnotation(
+                    all_ct = anno_points(limma_all_ct_mat, which = "column", gp = gpar(col = all_ct_colors), ylim = ylim_common),
+                    annotation_label = "limma\ndx v. all",
+                    annotation_name_rot = 90,
+                    annotation_height = unit(20, "mm")
+                )
+            ),
+            legends = list(
+                single_dx = Legend(labels = colnames(limma_single_dx_mat), title = "-log10 limma pval single dx v. control", legend_gp = gpar(fill = single_dx_colors)),
+                all_ct = Legend(labels = colnames(limma_all_ct_mat), title = "-log10 limma pval single dx v. all", legend_gp = gpar(fill = all_ct_colors))
+            )
+        )
+    )
+
+}
+
+mk_combo_heatmap <- function(base_heatmap, dge_hclust, gene_expr_annots, cluster_counts_annot, cluster_limma_annot) {
     hmap <- base_heatmap
     for (annot in gene_expr_annots) {
         hmap <- hmap %v% annot
@@ -226,10 +296,12 @@ mk_combo_heatmap <- function(base_heatmap, gene_expr_annots, cluster_counts_anno
     for (annot in cluster_counts_annot$annotations) {
         hmap <- hmap %v% annot
     }
+    for (annot in cluster_limma_annot$annotations) {
+        hmap <- hmap %v% annot
+    }
     # names are dropped after adding annotations. recover by manually adding text annotation.
     # col_labels are reordered during heatmap draw -- don't reorder manually
-    base_col_hclust <- base_heatmap@column_dend_param
-    base_col_labels <- base_col_hclust$obj$labels
+    base_col_labels <- dge_hclust$labels
     hmap <- hmap %v% columnAnnotation(colname_annot = anno_text(base_col_labels, location = unit(1, "npc"), just = "right"))
     return(hmap)
 }
