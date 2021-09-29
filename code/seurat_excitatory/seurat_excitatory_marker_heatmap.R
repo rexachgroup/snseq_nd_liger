@@ -44,6 +44,9 @@ main <- function() {
             }
             heatmap_worker(sobj, .x, markers, out_path)
         }, .keep = TRUE)
+
+    excitatory_meta %>%
+        heatmap_worker(sobj, ., marker_tb, file.path(out_dir, "seurat_excitatory_heatmap_crossregion.pdf"))
 }
 
 heatmap_worker <- function(sobj, excitatory_meta, marker_tb, out_path) {
