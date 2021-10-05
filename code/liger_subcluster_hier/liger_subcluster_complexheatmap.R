@@ -3,14 +3,17 @@
 # 2. counts of genes / cells per cluster.
 
 set.seed(0)
-liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "RColorBrewer", "scales")
+liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "RColorBrewer", "scales", "WGCNA")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 in_cluster_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/subcluster_wk.rds"
 in_limma <- "../../analysis/seurat_lchen/subcluster_composition/limma/subcluster_composition_dx_pmi.rds"
 in_seurat_liger <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
+
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
 excitatory_markers <- "../../resources/excitatory_layers_20210318.csv"
+in_bulk_meta <- "../../resources/individual_nd.rds"
+
 out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier/heatmap"
 batchtools <- file.path(out_path_base, "batchtools")
 options(future.globals.maxSize = Inf)
@@ -23,12 +26,19 @@ main <- function() {
     seurat_obj <- readRDS(in_seurat_rds)
     cluster_wk_in <- readRDS(in_cluster_dge_wk)
     liger_meta <- readRDS(in_seurat_liger)
+    bulk_meta <- readRDS(in_bulk_meta)
     excludes <- read_xlsx(clusters_exclude_file)
     limma_tb <- readRDS(in_limma)
     #marker_tb <- read_csv(excitatory_markers)
     #annot_gene_list <- unique(marker_tb$gene_symbol)
     #annot_gene_list <- c("GFAP", "DPP10", "SLC1A2", "SLC1A3", "GP5", "SOX5", "HPSE2", "CACNB2")
     annot_gene_list <- c("RORB", "KCNH7", "OPTN", "TMEM106B", "GPC5", "GPC6", "GRM8", "GPC4")
+    bulk_meta <- mutate(bulk_meta, Autopsy.ID = paste0("P", Autopsy.ID))
+    nd_tb <- bulk_meta %>%
+        group_by(Autopsy.ID, type) %>%
+        slice_head(n = 1) %>%
+        select(Autopsy.ID, type, score)
+
     cluster_dge_wk <- cluster_wk_in %>%
         filter(!ct_subcluster %in% excludes$ct_subcluster)
     
@@ -48,11 +58,13 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
+    cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, seurat_obj, nd_tb, annot_gene_list))
     
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_annot = map(cluster_limma_data, mk_cluster_limma_annot))
+    cluster_ct_group <- mutate(cluster_ct_group, cluster_nd_heatmap = map(nd_correlation, mk_nd_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(cluster_ct_group, mk_combo_heatmap))
 
     pwalk(cluster_ct_group, function(...) {
@@ -157,6 +169,26 @@ mk_gene_data <- function(liger_meta, sobj, annot_gene_list) {
         return(subcluster_expr_vec_list)
     }) %>% setNames(feature_list)
     return(subcluster_expr_vecs)
+}
+
+# Run bicor of nd values against gene markers per subcluster.
+mk_nd_data <- function(liger_meta, sobj, nd_tb, annot_gene_list) {
+    feature_list <- intersect(annot_gene_list, rownames(GetAssayData(sobj, slot = "scale.data")))
+    subset_sobj <- subset(sobj, cells = liger_meta$UMI, features = feature_list)
+    sobj_mat <- GetAssayData(sobj, slot = "scale.data")
+
+    subcluster_cor_tbs <- map(feature_list, function(gene_name) {
+        gene_expr_tb <- sobj_mat[gene_name,] %>% as.data.frame %>% rename(gene_expr = '.') %>% rownames_to_column("UMI") 
+        meta_expr <- left_join(liger_meta, gene_expr_tb, by = "UMI") 
+        meta_nd_tb <- left_join(meta_expr, nd_tb, by = c("autopsy_id" = "Autopsy.ID"))
+
+        meta_nd_tb %>%
+            group_by(ct_subcluster) %>%
+            summarize(bicor = bicor(gene_expr, score, use = "pairwise.complete.obs")[, 1]) %>%
+            rename({{ gene_name }} := bicor)
+    }) 
+    return(subcluster_cor_tbs)
+
 }
 
 #   - pass to columnAnnotation to create one violin plot per subcluster.
@@ -294,10 +326,31 @@ mk_cluster_limma_annot <- function(limma_data) {
 
 }
 
+mk_nd_heatmap <- function(nd_data) {
+    nd_mtx <- nd_data %>% reduce(., ~inner_join(.x, .y, by = "ct_subcluster")) %>%
+        column_to_rownames("ct_subcluster") %>%
+        as.matrix() %>%
+        t()
+
+    colormap <- colorRamp2(
+        breaks = c(min(nd_mtx, na.rm = TRUE), 0, max(nd_mtx, na.rm = TRUE)),
+        colors = c(muted("blue"), "white", muted("red"))
+    )
+
+    Heatmap(
+        nd_mtx,
+        row_title = " (b) ",
+        col = colormap,
+        height = unit(20, "mm"),
+        cluster_columns = FALSE,
+        cluster_rows = FALSE
+    )
+}
 
 mk_combo_heatmap <- function(...) {
     cr <- list(...)
     hmap <- cr$dge_base_heatmap
+    hmap <- hmap %v% cr$cluster_nd_heatmap
     for (annot in cr$gene_expr_annot) {
         hmap <- hmap %v% annot
     }
