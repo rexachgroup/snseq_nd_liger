@@ -46,13 +46,14 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = FALSE))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
+    cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
     
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
-    cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_annot = pmap(list(dge_data, dge_hclust), mk_cluster_limma_annot, limma_tb))
-    cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(list(dge_base_heatmap, dge_hclust, gene_expr_annot, cluster_counts_annot, cluster_limma_annot), mk_combo_heatmap))
+    cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_annot = map(cluster_limma_data, mk_cluster_limma_annot))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(cluster_ct_group, mk_combo_heatmap))
 
     pwalk(cluster_ct_group, function(...) {
         cr <- list(...)
@@ -111,6 +112,7 @@ mk_dge_hclust <- function(dge_plot_tb) {
 
 mk_beta_heatmap <- function(dge_plot_tb, beta_hclust) { 
     dge_beta_matrix <- pivot_matrix(dge_plot_tb, "ct_subcluster", "beta", "gene")
+    dge_beta_matrix[, beta_hclust$labels]
     colormap <- colorRamp2(
         breaks = c(min(dge_beta_matrix, na.rm = TRUE), 0, max(dge_beta_matrix, na.rm = TRUE)),
         colors = c(muted("blue"), "white", muted("red"))
@@ -189,6 +191,36 @@ mk_cluster_counts_data  <- function(liger_meta) {
     return(list(cell_count = cell_count_list, cell_dx_count = cell_dx_mat, gene_count = gene_count_list))
 }
 
+# format cluster dge values.
+# anno_points will rearrange columns but ONLY if the matrix ordering matches the unclustered sorting order of the main heatmap matrix.
+# therefore, reorder by dge_hclust$labels, which shuld have the lexicographical order
+mk_cluster_limma_data <- function(dge_data, dge_hclust, limma_tb) {
+    subclusters <- dge_data %>% summarize(ct_subcluster = as.character(unique(ct_subcluster)))
+    dge_order <- dge_hclust$labels
+    limma_filter <- limma_tb %>%
+        select(-data, -matrix, -limma, -limma_bayes) %>%
+        unnest(limma_pval) %>%
+        right_join(subclusters, by = c("ct_subcluster"))
+
+    # format single dx v. control p values.
+    limma_single_dx <- pivot_longer(limma_filter, cols = matches("^pvaldx.*Control$"), names_to = "type", values_to = "value") %>%
+        select(ct_subcluster, type, value) %>%
+        mutate(value = -log10(value))
+
+    # format single dx v. all p values.
+    limma_all_ct_dx <- pivot_longer(limma_filter, cols = matches("^pvaldx.*/ 3$"), names_to = "type", values_to = "value") %>%
+        select(ct_subcluster, type, value) %>%
+        mutate(value = -log10(value))
+
+    # format as matrix form; reorder rows according to dge hclust
+    limma_single_dx_mat <- pivot_matrix(limma_single_dx, "type", "value", "ct_subcluster")
+    limma_all_ct_mat <- pivot_matrix(limma_all_ct_dx, "type", "value", "ct_subcluster")
+    limma_single_dx_mat <- limma_single_dx_mat[dge_order, ]
+    limma_all_ct_mat <- limma_all_ct_mat[dge_order, ]
+
+    return(list(limma_single_dx_mat = limma_single_dx_mat, limma_all_ct_mat = limma_all_ct_mat))
+}
+
 pal_stallion <- c("1"="#D51F26","2"="#272E6A","3"="#208A42","4"="#89288F","5"="#F47D2B", "6"="#FEE500","7"="#8A9FD1","8"="#C06CAB","19"="#E6C2DC",
                 "10"="#90D5E4", "11"="#89C75F","12"="#F37B7D","13"="#9983BD","14"="#D24B27","15"="#3BBCA8", "16"="#6E4B9E","17"="#0C727C", "18"="#7E1416","9"="#D8A767","20"="#3D3D3D")
 
@@ -227,29 +259,9 @@ mk_cluster_counts_annot <- function(count_data) {
 }
 
 # make dotplot showing limma results.
-# anno_points doesn't rearrange columns to match the heatmaps' subcluster order -- reorder the matrix manually.
-mk_cluster_limma_annot <- function(dge_data, dge_hclust, limma_tb) {
-    subclusters <- dge_data %>% summarize(ct_subcluster = as.character(unique(ct_subcluster)))
-    limma_filter <- limma_tb %>%
-        select(-data, -matrix, -limma, -limma_bayes) %>%
-        unnest(limma_pval) %>%
-        right_join(subclusters, by = c("ct_subcluster"))
-
-    # format single dx v. control p values.
-    limma_single_dx <- pivot_longer(limma_filter, cols = matches("^pvaldx.*Control$"), names_to = "type", values_to = "value") %>%
-        select(ct_subcluster, type, value) %>%
-        mutate(value = -log10(value))
-
-    # format single dx v. all p values.
-    limma_all_ct_dx <- pivot_longer(limma_filter, cols = matches("^pvaldx.*/ 3$"), names_to = "type", values_to = "value") %>%
-        select(ct_subcluster, type, value) %>%
-        mutate(value = -log10(value))
-
-    # format as matrix form; reorder rows according to dge hclust
-    limma_single_dx_mat <- pivot_matrix(limma_single_dx, "type", "value", "ct_subcluster")
-    limma_all_ct_mat <- pivot_matrix(limma_all_ct_dx, "type", "value", "ct_subcluster")
-    limma_single_dx_mat <- limma_single_dx_mat[dge_hclust$order, ]
-    limma_all_ct_mat <- limma_all_ct_mat[dge_hclust$order, ]
+mk_cluster_limma_annot <- function(limma_data) {
+    limma_single_dx_mat <- limma_data$limma_single_dx_mat
+    limma_all_ct_mat <- limma_data$limma_all_ct_mat
 
     # pick from pal_stallion palette.
     single_dx_colors <- pal_stallion[1:ncol(limma_single_dx_mat)]
@@ -282,20 +294,22 @@ mk_cluster_limma_annot <- function(dge_data, dge_hclust, limma_tb) {
 
 }
 
-mk_combo_heatmap <- function(base_heatmap, dge_hclust, gene_expr_annots, cluster_counts_annot, cluster_limma_annot) {
-    hmap <- base_heatmap
-    for (annot in gene_expr_annots) {
+
+mk_combo_heatmap <- function(...) {
+    cr <- list(...)
+    hmap <- cr$dge_base_heatmap
+    for (annot in cr$gene_expr_annot) {
         hmap <- hmap %v% annot
     }
-    for (annot in cluster_counts_annot$annotations) {
+    for (annot in cr$cluster_counts_annot$annotations) {
         hmap <- hmap %v% annot
     }
-    for (annot in cluster_limma_annot$annotations) {
+    for (annot in cr$cluster_limma_annot$annotations) {
         hmap <- hmap %v% annot
     }
     # names are dropped after adding annotations. recover by manually adding text annotation.
     # col_labels are reordered during heatmap draw -- don't reorder manually
-    base_col_labels <- dge_hclust$labels
+    base_col_labels <- cr$dge_hclust$labels
     hmap <- hmap %v% columnAnnotation(colname_annot = anno_text(base_col_labels, location = unit(1, "npc"), just = "right"))
     return(hmap)
 }
