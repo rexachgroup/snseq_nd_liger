@@ -20,12 +20,6 @@ plot_ts <- str_glue("{system('md5sum liger_subcluster_complexheatmap.R', intern 
 main <- function() {
     dir.create(out_path_base, recursive = TRUE, showWarnings = FALSE)
 
-    if (!dir.exists(batchtools)) {
-        reg <- makeRegistry(batchtools)
-    } else {
-        reg <- loadRegistry(batchtools)
-    }
-
     seurat_obj <- readRDS(in_seurat_rds)
     cluster_wk_in <- readRDS(in_cluster_dge_wk)
     liger_meta <- readRDS(in_seurat_liger)
