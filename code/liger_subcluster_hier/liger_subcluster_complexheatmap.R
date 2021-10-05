@@ -53,11 +53,11 @@ main <- function() {
     ) %>%
     filter(!is.na(dge_data))
 
+    cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = FALSE))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
-    cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
     cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, seurat_obj, nd_tb, annot_gene_list))
     
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
