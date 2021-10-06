@@ -57,7 +57,7 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
-    cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, seurat_obj, nd_tb, annot_gene_list))
+    cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, nd_tb))
     
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
@@ -185,24 +185,28 @@ mk_gene_data <- function(liger_meta, sobj, annot_gene_list) {
     return(subcluster_expr_vecs)
 }
 
-# Run bicor of nd values against gene markers per subcluster.
-mk_nd_data <- function(liger_meta, sobj, nd_tb, annot_gene_list) {
-    feature_list <- intersect(annot_gene_list, rownames(GetAssayData(sobj, slot = "scale.data")))
-    subset_sobj <- subset(sobj, cells = liger_meta$UMI, features = feature_list)
-    sobj_mat <- GetAssayData(sobj, slot = "scale.data")
+# Run bicor of nd values against cluster cell counts.
+mk_nd_data <- function(liger_meta, nd_tb) {
+    library_celltype_counts_full <- liger_meta %>%
+        filter(cluster_cell_type == cell_type) %>%
+        group_by(library_id, ct_subcluster) %>%
+        summarize(
+            autopsy_id = unique(autopsy_id),
+            clinical_dx = unique(clinical_dx),
+            age = unique(age),
+            pmi = unique(pmi),
+            sex = unique(sex),
+            log_pmi = log(unique(pmi)),
+            mean_percent_mito = mean(percent_mito),
+            median_genes = median(number_genes),
+            cluster_ct = n(),
+        )
+    meta_nd_tb <- left_join(library_celltype_counts_full, nd_tb, by = c("autopsy_id" = "Autopsy.ID")) %>%
+        filter(!is.na(type)) %>%
+        group_by(ct_subcluster, type) %>%
+        summarize(bicor = bicor(cluster_ct, score, use = "pairwise.complete.obs", pearsonFallback = "none")[, 1])
 
-    subcluster_cor_tbs <- map(feature_list, function(gene_name) {
-        gene_expr_tb <- sobj_mat[gene_name,] %>% as.data.frame %>% rename(gene_expr = '.') %>% rownames_to_column("UMI") 
-        meta_expr <- left_join(liger_meta, gene_expr_tb, by = "UMI") 
-        meta_nd_tb <- left_join(meta_expr, nd_tb, by = c("autopsy_id" = "Autopsy.ID"))
-
-        meta_nd_tb %>%
-            group_by(ct_subcluster) %>%
-            summarize(bicor = bicor(gene_expr, score, use = "pairwise.complete.obs")[, 1]) %>%
-            rename({{ gene_name }} := bicor)
-    }) 
-    return(subcluster_cor_tbs)
-
+    return(meta_nd_tb)
 }
 
 #   - pass to columnAnnotation to create one violin plot per subcluster.
@@ -341,10 +345,7 @@ mk_cluster_limma_annot <- function(limma_data) {
 }
 
 mk_nd_heatmap <- function(nd_data) {
-    nd_mtx <- nd_data %>% reduce(., ~inner_join(.x, .y, by = "ct_subcluster")) %>%
-        column_to_rownames("ct_subcluster") %>%
-        as.matrix() %>%
-        t()
+    nd_mtx <- pivot_matrix(nd_data, "ct_subcluster", "bicor", "type")
 
     colormap <- colorRamp2(
         breaks = c(min(nd_mtx, na.rm = TRUE), 0, max(nd_mtx, na.rm = TRUE)),
