@@ -202,6 +202,18 @@ mk_gene_data <- function(liger_meta, sobj, annot_gene_list) {
     return(subcluster_expr_vecs)
 }
 
+symnum_signif <- function(pval, pval.fdr) {
+    ifelse(
+        pval.fdr < 0.1,
+        symnum(pval.fdr, cutpoints = c(0, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", " ")),
+        ifelse(
+            pval < 0.05,
+            "#",
+            " "
+        )
+    )
+}
+
 # Run bicor of nd values against cluster cell counts.
 mk_nd_data <- function(liger_meta, nd_tb) {
     library_celltype_counts_full <- liger_meta %>%
@@ -221,7 +233,13 @@ mk_nd_data <- function(liger_meta, nd_tb) {
     meta_nd_tb <- left_join(library_celltype_counts_full, nd_tb, by = c("autopsy_id" = "Autopsy.ID")) %>%
         filter(!is.na(type)) %>%
         group_by(ct_subcluster, type) %>%
-        summarize(bicor = bicor(cluster_ct, score, use = "pairwise.complete.obs", pearsonFallback = "none")[, 1])
+        summarize(
+            bicor = bicor(cluster_ct, score, use = "pairwise.complete.obs", pearsonFallback = "none")[, 1],
+            cor.test = tidy(cor.test(cluster_ct, score)),
+            cor.pval = cor.test$p.value,
+            cor.fdr = p.adjust(cor.pval),
+            cor.signif = symnum_signif(cor.pval, cor.fdr)
+        )
 
     return(meta_nd_tb)
 }
@@ -383,15 +401,25 @@ mk_cluster_limma_annot <- function(limma_data) {
 
 mk_nd_heatmap <- function(nd_data) {
     nd_mtx <- pivot_matrix(nd_data, "ct_subcluster", "bicor", "type")
+    heatmap_text_matrix <- pivot_matrix(nd_data, "ct_subcluster", "cor.signif", "type")
 
     colormap <- colorRamp2(
         breaks = c(min(nd_mtx, na.rm = TRUE), 0, max(nd_mtx, na.rm = TRUE)),
         colors = c(muted("blue"), "white", muted("red"))
     )
+    
+    plot_text_label <- function(j, i, x, y, w, h, col) {
+        label <- heatmap_text_matrix[i, j]
+        if (!is.na(label)) {
+            grid.text(label, x, y)
+        }
+    }
 
     Heatmap(
         nd_mtx,
+        name = "library count bicor",
         row_title = " (b) ",
+        cell_fun = plot_text_label,
         col = colormap,
         height = unit(20, "mm"),
         cluster_columns = FALSE,
