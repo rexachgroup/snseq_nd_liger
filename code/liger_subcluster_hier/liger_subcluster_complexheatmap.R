@@ -12,7 +12,8 @@ in_seurat_liger <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
 
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
-excitatory_markers <- "../../resources/excitatory_layers_20210318.csv"
+#excitatory_markers <- "../../resources/excitatory_layers_20210318.csv"
+marker_file <- "../../resources/Clustering_markers_forL.xlsx"
 in_bulk_meta <- "../../resources/individual_nd.rds"
 
 out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier/heatmap"
@@ -28,13 +29,17 @@ main <- function() {
     bulk_meta <- readRDS(in_bulk_meta)
     excludes <- read_xlsx(clusters_exclude_file)
     limma_tb <- readRDS(in_limma)
+    marker_tb <- read_xlsx(marker_file, sheet = "combined_markers") %>%
+        mutate(group = as.factor(replace_na(group, "markers"))) %>%
+        group_by(cluster_cell_type) %>%
+        group_nest(.key = "markers")
     #marker_tb <- read_csv(excitatory_markers)
-    #annot_gene_list <- unique(marker_tb$gene_symbol)
+    #annot_gene_list <- unique(marker_tb$gene)
     #annot_gene_list <- c("GFAP", "DPP10", "SLC1A2", "SLC1A3", "GP5", "SOX5", "HPSE2", "CACNB2")
     #annot_gene_list <- c("RORB", "KCNH7", "OPTN", "TMEM106B", "GPC5", "GPC6", "GRM8", "GPC4")
-    annot_gene_list <- c("EPHA6", "STGALNAC5", "LRRTM4", "GRM7", "CNTNAP5", "CNTNAP2", "KNIP4", "ROBO2", "NLGN1", "HS3T4", "ASIC2", "NEFM")
-    bulk_meta <- mutate(bulk_meta, Autopsy.ID = paste0("P", Autopsy.ID))
+    #annot_gene_list <- c(annot_gene_list, "EPHA6", "STGALNAC5", "LRRTM4", "GRM7", "CNTNAP5", "CNTNAP2", "KNIP4", "ROBO2", "NLGN1", "HS3T4", "ASIC2", "NEFM")
     nd_tb <- bulk_meta %>%
+        mutate(Autopsy.ID = paste0("P", Autopsy.ID)) %>%
         group_by(Autopsy.ID, type) %>%
         slice_head(n = 1) %>%
         select(Autopsy.ID, type, score)
@@ -45,7 +50,8 @@ main <- function() {
     cluster_ct_group <- cluster_dge_wk %>%
         group_by(cluster_cell_type) %>%
         group_nest %>%
-        filter(cluster_cell_type == "excitatory")
+        filter(!cluster_cell_type %in% c("t_cell")) %>%
+        left_join(marker_tb, by = "cluster_cell_type")
 
     cluster_ct_group <- mutate(cluster_ct_group, liger_meta = map(data, ~filter(liger_meta, ct_subcluster %in% .$ct_subcluster)))
     cluster_ct_group <- mutate(cluster_ct_group,
@@ -55,15 +61,15 @@ main <- function() {
 
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = FALSE))
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
-    cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = map(liger_meta, mk_gene_data, seurat_obj, annot_gene_list))
+    cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = pmap(list(liger_meta, markers), mk_gene_data, seurat_obj))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
-    cluster_ct_group <- mutate(cluster_ct_group, dge_marker_data = pmap(list(dge_data, dge_hclust), mk_beta_marker_data, annot_gene_list))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_marker_data = pmap(list(dge_data, dge_hclust, markers), mk_beta_marker_data))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
     cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, nd_tb))
     
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
-    cluster_ct_group <- mutate(cluster_ct_group, dge_marker_heatmap = pmap(list(dge_marker_data, dge_hclust), mk_beta_marker_heatmap))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_marker_heatmap = pmap(list(dge_marker_data, dge_hclust, markers), mk_beta_marker_heatmaps))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_annot = map(cluster_limma_data, mk_cluster_limma_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_nd_heatmap = map(nd_correlation, mk_nd_heatmap))
@@ -74,8 +80,16 @@ main <- function() {
         heatmap_path <- file.path(out_path_base, str_glue("dge_enrichment_{cr$cluster_cell_type}_var_beta_heatmap.pdf"))
         plot_ts <- str_glue("{system('md5sum liger_subcluster_complexheatmap.R', intern = TRUE)} {date()}")
 
-        title_grob <- textGrob(label = str_glue("{cr$cluster_cell_type}"), x = unit(0.05, "npc"), y = unit(-0.7, "npc"), just  = "left", gp = gpar(fontsize = 32))
-        subtitle_grob <- textGrob(label = plot_ts, x = unit(0.05, "npc"), y = unit(-1, "npc"), just = "left", gp = gpar(fontsize = 18))
+        title_grob <- textGrob(
+            label = str_glue("{cr$cluster_cell_type}"),
+            x = unit(1, "cm"), y = unit(0.5, "cm"), 
+            just = c(0, 0.5),
+            gp = gpar(fontsize = 32))
+        subtitle_grob <- textGrob(
+            label = plot_ts,
+            x = unit(1, "cm"), y = unit(0.5, "cm"),
+            just = c(0, 0.5),
+            gp = gpar(fontsize = 18))
         
         tmp_pdf <- function(w, h) { pdf(tempfile(), w, h) }
         pdf(tempfile())
@@ -88,10 +102,16 @@ main <- function() {
         )
         dev.off()
 
-        pdf(heatmap_path, width = unit(15, "cm"), height = unit(20, "cm"))
-        print(plot_grid(title_grob, subtitle_grob, heatmap_gtree, ncol = 1, rel_heights = c(0.02, 0.02, 1)))
-        graphics.off()
+        if (nrow(cr$dge_marker_data) > 1) {
+            height <- unit((0.5 * nrow(cr$dge_marker_data)) + 10, "cm")
+        } else {
+            height <- unit(10, "cm")
+        }
+
         print(heatmap_path)
+        pdf(heatmap_path, width = unit(15, "cm"), height = height)
+        print(plot_grid(title_grob, subtitle_grob, heatmap_gtree, ncol = 1, rel_heights = c(0.05, 0.05, 1)))
+        graphics.off()
     })
 
 }
@@ -165,10 +185,11 @@ mk_beta_heatmap <- function(dge_plot_tb, beta_hclust) {
 mk_beta_marker_data <- function(dge_data, beta_hclust, annot_gene_list) {
     # dge data may not have results for all subclusters; using complete() to match beta_hclust subclusters
     gene_dge_list <- dge_data %>%
-        filter(gene %in% annot_gene_list) %>%
+        filter(gene %in% annot_gene_list$gene) %>%
         group_by(gene) %>%
         complete(ct_subcluster = beta_hclust$labels)
     dge_beta_matrix <- pivot_matrix(gene_dge_list, "ct_subcluster", "beta", "gene")
+    if (nrow(dge_beta_matrix) == 0) return(matrix())
     stopifnot(all(colnames(dge_beta_matrix) %in% beta_hclust$labels))
     dge_beta_matrix <- dge_beta_matrix[, beta_hclust$labels]
     return(dge_beta_matrix)
@@ -182,13 +203,12 @@ mk_beta_marker_data <- function(dge_data, beta_hclust, annot_gene_list) {
 # - names(x) is gene names in annot_gene_list.
 # - names(x[[*]]) is subclusters in liger_meta.
 # - x[[*]] is a vector of gene expression values for each subcluster.
-mk_gene_data <- function(liger_meta, sobj, annot_gene_list) {
-    feature_list <- intersect(annot_gene_list, rownames(seurat_obj))
+mk_gene_data <- function(liger_meta, annot_gene_list, sobj) {
+    feature_list <- intersect(annot_gene_list$gene, rownames(GetAssayData(sobj, slot = "scale.data")))
     subset_sobj <- subset(sobj, cells = liger_meta$UMI, features = feature_list)
     #sobj_scaled <- ScaleData(subset_sobj, model.use = "negbinom", vars.to.regress = c("pmi", "age", "sex", "number_umi", "percent_mito"), assay = "RNA")
-    sobj_mat <- GetAssayData(sobj, slot = "scale.data")
+    sobj_mat <- GetAssayData(subset_sobj, slot = "scale.data")
 
-    feature_list <- intersect(annot_gene_list, rownames(sobj_mat))
     subcluster_expr_vecs <- map(feature_list, function(gene_name) {
         gene_expr_tb <- sobj_mat[gene_name,] %>% as.data.frame %>% rename(gene_expr = '.') %>% rownames_to_column("UMI") 
         meta_expr <- left_join(liger_meta, gene_expr_tb, by = "UMI") 
@@ -246,36 +266,87 @@ mk_nd_data <- function(liger_meta, nd_tb) {
 
 # heatmap formatting funcs
 
-mk_beta_marker_heatmap <- function(marker_data, beta_hclust) {
-    colormap <- colorRamp2(
-        breaks = c(min(marker_data, na.rm = TRUE), 0, max(marker_data, na.rm = TRUE)),
-        colors = c(muted("blue"), "white", muted("red"))
-    )
-   heat <- Heatmap(
-        marker_data,
-        name = " ",
-        col = colormap,
-        na_col = "grey75",
-        cluster_columns = beta_hclust,
-        cluster_rows = FALSE,
-        show_row_names = TRUE,
-        show_column_names = TRUE,
-        height = unit(20, "mm")
-    )
-    return(heat)
+mk_beta_marker_heatmaps <- function(marker_data, beta_hclust, marker_tb, row_hclust = FALSE) {
+    if (!is.null(marker_tb)) {
+        marker_tb
+        marker_tb %>%
+            group_by(group) %>%
+            group_map(function(.x, .y, ...) {
+                marker_data <- marker_data[intersect(rownames(marker_data), .x$gene),]
+                print(dim(marker_data))
+                if (is.matrix(marker_data) && nrow(marker_data) > 0) {
+                    colormap <- colorRamp2(
+                        breaks = c(min(marker_data, na.rm = TRUE), 0, max(marker_data, na.rm = TRUE)),
+                        colors = c(muted("blue"), "white", muted("red"))
+                    )
+                    height <- unit(nrow(marker_data) * 10, "mm")
+                    heat <- Heatmap(
+                        marker_data,
+                        col = colormap,
+                        na_col = "grey75",
+                        cluster_columns = beta_hclust,
+                        cluster_rows = FALSE,
+                        show_row_names = TRUE,
+                        show_column_names = TRUE,
+                        height = height
+                    )
+                    return(heat)
+                } else {
+                    return(NULL)
+                }
+            })
+#             group_map(function(.x, .y, ...) {
+#                 print(.x$gene)
+#                 marker_data <- marker_data[intersect(rownames(marker_data), .x$gene),]
+#                 if (nrow(marker_data) > 0) {
+#                     print(as.character(.y$group))
+#                     colormap <- colorRamp2(
+#                         breaks = c(min(marker_data, na.rm = TRUE), 0, max(marker_data, na.rm = TRUE)),
+#                         colors = c(muted("blue"), "white", muted("red"))
+#                     )
+#                     if (row_hclust) {
+#                         row_dist <- dist(marker_data)
+#                         if (nrow(marker_data) > 2) {
+#                             row_hclust <- hclust(row_dist)
+#                         } else {
+#                             row_hclust <- FALSE
+#                         }
+#                     } else {
+#                         row_hclust <- FALSE
+#                     }
+# 
+#                     height <- unit(nrow(marker_data) * 10, "mm")
+#                     heat <- Heatmap(
+#                         marker_data,
+#                         col = colormap,
+#                         na_col = "grey75",
+#                         cluster_columns = beta_hclust,
+#                         cluster_rows = row_hclust,
+#                         show_row_names = TRUE,
+#                         show_column_names = TRUE,
+#                         height = height
+#                     )
+#                     
+#                     return(heat)
+#                 }
+#             })
+    }
+
 }
 
 mk_gene_annot <- function(gene_data) {
-    annotation_height <- unit(15, "mm")
+    annotation_height <- unit(10, "mm")
     heatmaps <- imap(gene_data, function(subcluster_expr_vec_list, gene_name){
         columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "heatmap"), annotation_label = gene_name, annotation_height = annotation_height)
     })
     violins <- imap(gene_data, function(subcluster_expr_vec_list, gene_name){
         columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "violin"), annotation_label = gene_name, annotation_height = annotation_height)
     })
-    return(c(heatmaps, violins))
+    #return(c(heatmaps, violins))
+    return(heatmaps)
 }
 
+# compute cluster 
 mk_cluster_counts_data  <- function(liger_meta) {
     cell_count <- liger_meta %>%
         group_by(ct_subcluster) %>%
@@ -431,9 +502,8 @@ mk_combo_heatmap <- function(...) {
     cr <- list(...)
     hmap <- cr$dge_base_heatmap
     hmap <- hmap %v% cr$cluster_nd_heatmap
-    hmap <- hmap %v% cr$dge_marker_heatmap
-    for (annot in cr$gene_expr_annot) {
-        hmap <- hmap %v% annot
+    for (annot_heatmap in cr$dge_marker_heatmap) {
+        hmap <- hmap %v% annot_heatmap
     }
     for (annot in cr$cluster_counts_annot$annotations) {
         hmap <- hmap %v% annot
