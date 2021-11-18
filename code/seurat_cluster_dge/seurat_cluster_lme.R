@@ -5,8 +5,12 @@ options(future.globals.maxSize = Inf, deparse.max.lines = 5)
 
 in_seurat_rds <-
   "../../analysis/pci_import/pci_seurat.rds"
-in_seurat_meta <-
-  "../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
+#in_seurat_meta <-
+#  "../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
+#in_seurat_meta <- 
+#    "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
+in_seurat_meta <- 
+    "../../analysis/pci_import/pci_seurat_meta.rds"
 
 ## Outputs
 out_path_base <- "../../analysis/seurat_lchen/seurat_cluster_lme/"
@@ -37,7 +41,7 @@ main <- function() {
     # Subset seurat object.
     meta_subset <- meta %>%
         mutate( 
-            ct_cluster = paste(region, cluster_celltype_layer, sep = "-"),
+            ct_cluster = paste(region, cluster_cell_type, sep = "-"),
             log_number_umi = log(number_umi),
             filepath = in_seurat_rds,
             model_design = model_design
