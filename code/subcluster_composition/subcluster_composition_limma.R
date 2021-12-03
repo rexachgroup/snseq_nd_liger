@@ -117,7 +117,7 @@ limma_fit_contrast <- function(tb, form) {
 
 # extract + format eBayes coefficients
 limma_extract_coefs <- function(tb) {
-    tb %>%
+    tb_fmt <- tb %>%
     mutate(
         limma_pval = map(limma_bayes, function(dx_bayes) {
             dx_bayes$p.value %>%
@@ -133,6 +133,14 @@ limma_extract_coefs <- function(tb) {
         }),
         limma_sigma = map(limma_bayes, function(dx_bayes) {
             tibble(ct_subcluster = rownames(dx_bayes$p.value), sigma = dx_bayes$sigma)
+        }),
+        limma_p_adjust = map(limma_pval, function(pval_tb) {
+            mutate(pval_tb, across(
+                starts_with("pval"), 
+                ~p.adjust(.x, method = "BH"), 
+                .names = "fdr.{.col}")
+            ) %>%
+            select(ct_subcluster,starts_with("fdr"))
         })
     )
 }
@@ -140,19 +148,17 @@ limma_extract_coefs <- function(tb) {
 summarize_limma <- function(tb) {
     tb %>%
         filter(!is.na(limma_pval)) %>%
-        mutate(limma_cmb = pmap(list(limma_beta, limma_pval, limma_sigma), 
-            function(beta, pval, s2) {
-                inner_join(beta, pval, by = "ct_subcluster") %>%
-                    inner_join(s2, by = "ct_subcluster")
-            })
-        ) %>%
+        mutate(limma_cmb = pmap(list(limma_beta, limma_pval, limma_p_adjust, limma_sigma), function(...) {
+            cr <- list(...)
+            Reduce(function(.x, .y) inner_join(.x, .y, by = "ct_subcluster"), cr)
+        })) %>%
         unnest(limma_cmb)
 }
 
 write_limma <- function(tb, path) {
     tb %>% 
         summarize_limma %>%
-        select(-data, -matrix, -limma, -limma_bayes, -limma_pval, -limma_beta, -limma_sigma) %>%
+        select(-data, -matrix, -limma, -limma_bayes, -limma_pval, -limma_beta, -limma_sigma, -limma_p_adjust) %>%
         write_tsv(path)
 }
 
