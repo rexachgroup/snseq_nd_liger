@@ -95,6 +95,7 @@ main <- function() {
 
     # Merge all subcluster results per region / celltype and write out as separate csv files. 
     subcluster_wk %>%
+        filter(!is.na(broom_join)) %>%
         group_by(region, cluster_cell_type) %>%
         group_split %>%
         walk(function(x) {
