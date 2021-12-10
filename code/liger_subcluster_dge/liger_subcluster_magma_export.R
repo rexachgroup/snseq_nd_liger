@@ -6,8 +6,8 @@ OUT_DIR <- "../../analysis/seurat_lchen/liger_subcluster_lme/dge_export"
 SEURAT <- "../../analysis/seurat_lchen/liger_subcluster_lme/subcluster_wk.rds"
 GENESETS <- list(
     "AD" = list("igap", "kunkle"),
-    "bvFTD" = "ferrari",
-    "PSP-S" = "hoglinger"
+    "bvFTD" = list("ferrari"),
+    "PSP-S" = list("hoglinger")
 )
 
 main <- function() {
@@ -46,7 +46,7 @@ main <- function() {
     })
 
     cluster_tbs %>%
-        select(name = name, annotations = csv_filepath, genesets = genesets) %>%
+        select(name = name, annotations = csv_filepath, genesets = genesets, region, cluster_cell_type, dx, type) %>%
         saveRDS(file.path(OUT_DIR, "annotation_spec.rds"))
 }
 
@@ -54,7 +54,7 @@ magma_filter_up <- function(data) {
     data %>%
         group_by(gene, clinical_dx) %>%
         pivot_wider(names_from = "type", values_from = "value") %>%
-        filter(estimate > 0, p.value.adj < 0.05) %>%
+        filter(estimate > 0, p.value < 0.05) %>%
         select(GENE = gene, GROUP = ct_subcluster, dx = clinical_dx)
 }
 
@@ -62,7 +62,7 @@ magma_filter_down <- function(data) {
     data %>%
         group_by(gene, clinical_dx) %>%
         pivot_wider(names_from = "type", values_from = "value") %>%
-        filter(estimate < 0, p.value.adj < 0.05) %>%
+        filter(estimate < 0, p.value < 0.05) %>%
         select(GENE = gene, GROUP = ct_subcluster, dx = clinical_dx)
 }
 
@@ -78,3 +78,6 @@ pivot_dge_data <- function(data) {
     return(data_longer)
 }
 
+if (!interactive()) {
+    main()
+}
