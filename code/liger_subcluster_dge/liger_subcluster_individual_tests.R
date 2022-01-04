@@ -24,9 +24,9 @@ RESOURCES <- list(
 prop_detected_filter <- 0.1
 chunk_size <- 1
 
-# List of tests. Each pair of statements is evaluated on the metadata,
+# List of tests. Each pair of statements is evaluated on the metadata through dplyr::filter(),
 # and is used to set a new factor column named custom_split for data input to LME.
-# The second entry is always the background and will be the first level.
+# The first value is the test, while the second entry will be the background.
 test_statements <- list(
     "calcarine-exitatory-2-psp" = list(
         quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "PSP-S"), 
@@ -129,6 +129,7 @@ main <- function() {
  
     model_design <- "expression ~ custom_split + pmi + age + sex + number_umi + percent_mito + (1 | library_id)"
     
+    # For each of the test_statements, make a tibble subsetting the metadata down to test and bg levels in make_split.
     subcluster_wk <- tibble(test_name = names(test_statements), test_quos = test_statements) %>%
         mutate(
             split_meta = pmap(., function(...) { 
@@ -148,6 +149,7 @@ main <- function() {
         writeLines
     subcluster_wk <- filter(subcluster_wk, !file.exists(filepath))
 
+    # Batchtools submit + wait.
     clearRegistry()
     batchExport(mget(ls()), reg = reg)
     ids <- batchMap(subcluster_worker,
@@ -182,7 +184,10 @@ main <- function() {
         write_csv(current_row$broom_join, current_row$filepath)
     })
 }
-
+# plug each filter expression into filter() to subset the .meta metadata tibble down to levels expr1 and expr2.
+# makes a new column containing a factor var custom_split;
+# rows satisfying filterexpr1 are labeled test, while
+# rows satisfying filterexpr2 are labeled bg.
 make_split <- function(.meta, filterexpr1, filterexpr2) {
     if (nrow(filter(.meta, !!filterexpr1)) == 0) {
         stop("check filterexpr1: no valid rows in .meta")
@@ -203,7 +208,7 @@ subcluster_worker <- function(meta, prop_detected_filter) {
     envdata <- new.env()
     load(file.path("..", unique(meta$filepath)), envdata)
     
-    # Subset.
+    # Subset by cell ids first to reduce memory usage in calculating prop_detected.
     subcluster_so <- subset(envdata$liger_so, cells = meta$cell_ids)
     rm(envdata)
     gc()
@@ -241,7 +246,6 @@ run_lmer_de <- function(
     expr_m <- GetAssayData(seurat_obj, slot = "data")
 
     # Convert model to formula.
-    # If dx is present relevel seurat_obj so that control is the 1st factor level.
     model <- as.formula(model_design)
     test_vars <- meta
 
