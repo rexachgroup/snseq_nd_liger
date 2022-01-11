@@ -43,7 +43,8 @@ main <- function() {
         select(Autopsy.ID, type, score)
 
     cluster_dge_wk <- cluster_wk_in %>%
-        filter(!ct_subcluster %in% excludes$ct_subcluster)
+        filter(!ct_subcluster %in% excludes$ct_subcluster) %>%
+        filter(!is.na(broom_join))
     
     cluster_ct_group <- cluster_dge_wk %>%
         group_by(cluster_cell_type) %>%
@@ -59,7 +60,7 @@ main <- function() {
     ) %>%
     filter(!is.na(dge_data))
 
-    cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = FALSE))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = TRUE))
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = pmap(list(liger_meta, markers), mk_gene_data, seurat_obj))
     cluster_ct_group <- mutate(cluster_ct_group, dge_dx_data = pmap(list(data, markers), fmt_cluster_dx_dge, cluster_wk_dx_in))
@@ -421,9 +422,34 @@ mk_cluster_limma_data <- function(dge_data, dge_hclust, limma_tb) {
         select(ct_subcluster, type, value) %>%
         mutate(value = -log10(value))
 
+    # format single dx v. control beta.
+    limma_single_dx_beta <- limma_tb %>%
+        select(-data, -matrix, -limma, -limma_bayes) %>%
+        unnest(limma_beta) %>%
+        right_join(subclusters, by = c("ct_subcluster")) %>%
+        pivot_longer(cols = matches("^betadx.*Control$"), names_to = "type", values_to = "value") %>%
+        select(ct_subcluster, type, value)
+
+    # format single dx v. all p values.
+    limma_all_dx_beta <- limma_tb %>%
+        select(-data, -matrix, -limma, -limma_bayes) %>%
+        unnest(limma_beta) %>%
+        right_join(subclusters, by = c("ct_subcluster")) %>%
+        pivot_longer(cols = matches("^betadx.*/ 3$"), names_to = "type", values_to = "value") %>%
+        select(ct_subcluster, type, value)
+
     # format as matrix form; reorder rows according to dge hclust
+    # multiply by sign() of estimate 
+
+    limma_single_dx_est_mat <- pivot_matrix(limma_single_dx_beta, "type", "value", "ct_subcluster")
+    limma_all_ct_est_mat <- pivot_matrix(limma_all_dx_beta, "type", "value", "ct_subcluster")
+
     limma_single_dx_mat <- pivot_matrix(limma_single_dx, "type", "value", "ct_subcluster")
     limma_all_ct_mat <- pivot_matrix(limma_all_ct_dx, "type", "value", "ct_subcluster")
+
+    limma_single_dx_mat <- limma_single_dx_mat * sign(limma_single_dx_est_mat)
+    limma_all_ct_mat <- limma_all_ct_mat * sign(limma_all_ct_est_mat)
+
     limma_single_dx_mat <- limma_single_dx_mat[dge_order, ]
     limma_all_ct_mat <- limma_all_ct_mat[dge_order, ]
 
@@ -476,7 +502,7 @@ mk_cluster_limma_annot <- function(limma_data) {
     single_dx_colors <- pal_stallion[1:ncol(limma_single_dx_mat)]
     all_ct_colors <- pal_stallion[1:ncol(limma_all_ct_mat)]
     
-    ylim_common <- c(0, max(limma_single_dx_mat, limma_all_ct_mat, na.rm = TRUE))
+    ylim_common <- c(min(limma_single_dx_mat, limma_all_ct_mat, na.rm = TRUE), max(limma_single_dx_mat, limma_all_ct_mat, na.rm = TRUE))
 
     return(
         list(
