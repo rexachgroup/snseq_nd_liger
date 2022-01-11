@@ -27,7 +27,7 @@ main <- function() {
     seurat_obj <- readRDS(in_seurat_rds)
     cluster_wk_in <- readRDS(in_cluster_dge_wk)
     cluster_wk_dx_in <- readRDS(in_cluster_dx_dge_wk)
-    liger_meta <- readRDS(in_seurat_liger)
+    liger_meta_in <- readRDS(in_seurat_liger)
     bulk_meta <- readRDS(in_bulk_meta)
     excludes <- read_xlsx(clusters_exclude_file)
     limma_tb <- readRDS(in_limma)
@@ -51,7 +51,9 @@ main <- function() {
         filter(!cluster_cell_type %in% c("t_cell")) %>%
         left_join(marker_tb, by = "cluster_cell_type")
 
-    cluster_ct_group <- mutate(cluster_ct_group, liger_meta = map(data, ~filter(liger_meta, ct_subcluster %in% .$ct_subcluster)))
+    cluster_ct_group <- mutate(cluster_ct_group, liger_meta = map(data, function(data) {
+        filter(liger_meta_in, ct_subcluster %in% data$ct_subcluster)
+    }))
     cluster_ct_group <- mutate(cluster_ct_group,
         dge_data = map(data, ~tryCatch(fmt_cluster_dge(.), error = function(x) {print(x); return(NA)}))
     ) %>%
