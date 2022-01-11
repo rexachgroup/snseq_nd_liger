@@ -4,6 +4,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
+  - r-base=4.0.5
   - r-lmertest
   - r-liger=0.5.0.9000
   - r-batchtools
@@ -11,7 +12,7 @@ dependencies:
   - r-broom.mixed
   - r-eulerr
   - bioconductor-edger
-  - r-tidyverse
+  - r-tidyverse=1.3.1
   - r-ggcorrplot
   - r-cowplot
   - r-ggally
