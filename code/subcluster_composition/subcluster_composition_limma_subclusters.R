@@ -4,29 +4,27 @@ lapply(liblist, require, character.only = TRUE)
 
 META_FILE <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 OUT_DIR <- "../../analysis/seurat_lchen/subcluster_composition/limma_subclusters/"
-#SUBCLUSTER_FILTER_FILE <- "../../analysis/seurat_lchen/liger_subcluster_filtered_props.rds"
 SUBCLUSTER_FILTER_FILE <- "../../resources/subclusters_removed_byQC_final.xlsx"
 
 main <- function() {
     if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR)
     meta_tb <- readRDS(META_FILE)
     excludes <- read_xlsx(SUBCLUSTER_FILTER_FILE)
-    azumuth_meta <- read_csv(AZIMUTH_CLUSTERS)
 
     meta <- meta_tb %>%
         mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-"),
-            clinical_dx = fct_relevel(clinical_dx, "Control"))
+            clinical_dx = fct_relevel(clinical_dx, "Control")) %>%
+        mutate(ct_subcluster = fct_collapse(ct_subcluster, "insula-inhibitory-0/6" = c("insula-inhibitory-0", "insula-inhibitory-6")))
 
     ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_dx == "Control")) %>% filter(ctl == TRUE)
 
-    # Count the number of cells belonging to a control sample for each subcluster.
     library_subcluster_counts <- meta %>%
         filter(cluster_cell_type == cell_type,
                !ct_subcluster %in% excludes$ct_subcluster,
-               ct_subcluster %in% ctl_filter$ct_subcluster,) %>%
+               ct_subcluster %in% ctl_filter$ct_subcluster) %>%
+        filter(region == "insula", cell_type == "inhibitory") %>%
         group_by(region, library_id, ct_subcluster) %>%
         summarize(cell_type = unique(cell_type), 
-                  liger_cluster = unique(liger_clusters),
                   subcluster_ct = n())
 
     # Count the total number of cells per Seurat cluster.
@@ -44,30 +42,21 @@ main <- function() {
             cluster_ct = n(),
         )
 
-    library_pct <- inner_join(library_subcluster_counts, library_celltype_counts_full, by = c("region", "library_id", "cell_type")) %>%
-        mutate(subcluster_pct_norm = subcluster_ct / cluster_ct)
+    library_pct <- inner_join(library_subcluster_counts, library_celltype_counts_full, by = c("region", "library_id", "cell_type"))
     
-    mes_limma <- limma_subset_fit(
-        library_pct, 
-        ct_subcluster %in% c("insula-excitatory-0", "insula-excitatory-6"), 
-        "~0 + dx + pmi + age + sex + mean_percent_mito + median_genes"
-    )
-    write_limma(mes_limma, file.path(OUT_DIR, "subcluster_composition_mes.tsv"))
-    saveRDS(mes_limma, file.path(OUT_DIR, "subcluster_composition_mes.rds"))
-}
-
-limma_subset_fit <- function(library_pct, subset_expr, formula) {
     library_subset_mats <- library_pct %>%
-        filter({{subset_expr}}) %>%
         group_by(region, cell_type) %>%
         group_nest(keep = TRUE) %>%
         mutate(matrix = map(data, function(data) {
-            pivot_matrix(data, "library_id", "subcluster_ct", "ct_subcluster")
+            pivot_matrix(data, "library_id", "subcluster_ct", "ct_subcluster", values_fn = sum, values_fill = 0)
         }))
-
-    limma_dx_fit <- limma_fit_contrast(library_subset_mats, form = formula) %>%
+    
+    form <- "~0 + dx + pmi + age + sex + mean_percent_mito + median_genes"
+    mes_fit <- limma_fit_contrast(library_subset_mats, form = form) %>%
         limma_extract_coefs
-    return(limma_dx_fit)
+
+    write_limma(mes_fit, file.path(OUT_DIR, "subcluster_composition_mes.tsv"))
+    saveRDS(mes_fit, file.path(OUT_DIR, "subcluster_composition_mes.rds"))
 }
 
 # for each data + matrix row, fit limma model using form, then compute contrasts and estimate eBayes
@@ -164,10 +153,10 @@ write_limma <- function(tb, path) {
         write_tsv(path)
 }
 
-pivot_matrix <- function(tb, cols_from, values_from, rows_from, fill_na = NA) {
+pivot_matrix <- function(tb, cols_from, values_from, rows_from, ...) {
     tb_pivot <- tb %>%
         select(all_of(c(cols_from, values_from, rows_from))) %>%
-        pivot_wider(names_from = all_of(cols_from), values_from = all_of(values_from), values_fill = fill_na) %>%
+        pivot_wider(names_from = all_of(cols_from), values_from = all_of(values_from), ...) %>%
         ungroup
 
     tb_matrix <- select(tb_pivot, -all_of(rows_from)) %>% as.matrix()
