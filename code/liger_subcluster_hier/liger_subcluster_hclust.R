@@ -22,14 +22,10 @@ main <- function() {
 
     cluster_wk_in <- readRDS(in_cluster_wk)
     excludes <- read_xlsx(clusters_exclude_file)
+    stopifnot("ct_subcluster" %in% colnames(excludes))
     cluster_wk <- cluster_wk_in %>%
-        filter(!ct_subcluster %in% excludes$ct_subcluster)
-        #filter(cluster_cell_type == "excitatory", region == "insula" | region == "preCG")
-    #     marker_tb <- excitatory_markers %>%
-    #         filter(!is.na(gene_symbol)) %>%
-    #         filter(!duplicated(gene_symbol)) %>%
-    #         arrange(marker_for, gene_symbol)
-
+        filter(!ct_subcluster %in% excludes$ct_subcluster) %>%
+        filter(!is.na(broom_join))
 
     cluster_ct_group <- cluster_wk %>%
         group_by(cluster_cell_type) %>%
@@ -63,7 +59,6 @@ main <- function() {
         print(rds_path)
     })
 
-    print()
 
 #     # Pull top variable genes.
 #     # Plot hclust structure.
@@ -104,8 +99,7 @@ cluster_worker <- function(cluster_wk) {
         filter(length(unique(region)) == length(unique(enrichment_dge_list$region))) %>%
         summarize(beta_var = var(beta)) %>%
         arrange(desc(beta_var)) %>%
-        slice_head(n = 100) %>%
-        print(n = Inf)
+        slice_head(n = 100)
     
     dge_plot_tb <- enrichment_dge_list %>%
         filter(gene %in% top_var_genes$gene) %>%
