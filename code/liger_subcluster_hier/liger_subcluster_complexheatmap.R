@@ -5,7 +5,7 @@
 set.seed(0)
 options(bitmapType='png')
 liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "RColorBrewer", "scales", "WGCNA", "cowplot", "broom.mixed")
-l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
+l <- lapply(liblist, function(x) {suppressPackageStartupMessages(require(x, character.only = TRUE, quietly = TRUE))})
 in_cluster_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/subcluster_wk.rds"
 in_cluster_dx_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_lme/subcluster_wk.rds"
 in_limma <- "../../analysis/seurat_lchen/subcluster_composition/limma/subcluster_composition_dx_pmi.rds"
@@ -40,7 +40,8 @@ main <- function() {
         mutate(Autopsy.ID = paste0("P", Autopsy.ID)) %>%
         group_by(Autopsy.ID, type) %>%
         slice_head(n = 1) %>%
-        select(Autopsy.ID, type, score)
+        select(Autopsy.ID, type, score) %>%
+        mutate(Autopsy.ID = factor(Autopsy.ID), type = factor(type))
 
     cluster_dge_wk <- cluster_wk_in %>%
         filter(!ct_subcluster %in% excludes$ct_subcluster) %>%
@@ -277,6 +278,7 @@ symnum_signif <- function(pval, pval.fdr) {
 mk_nd_data <- function(liger_meta, nd_tb) {
     library_celltype_counts_full <- liger_meta %>%
         filter(cluster_cell_type == cell_type) %>%
+        mutate(ct_subcluster = fct_drop(ct_subcluster)) %>%
         group_by(library_id, ct_subcluster) %>%
         summarize(
             autopsy_id = unique(autopsy_id),
@@ -288,8 +290,10 @@ mk_nd_data <- function(liger_meta, nd_tb) {
             mean_percent_mito = mean(percent_mito),
             median_genes = median(number_genes),
             cluster_ct = n(),
+            .groups = "drop"
         )
 
+    # bicor / cor.test on cell counts per subcluster.
     meta_nd_tb <- left_join(library_celltype_counts_full, nd_tb, by = c("autopsy_id" = "Autopsy.ID")) %>%
         filter(!is.na(type)) %>%
         group_by(ct_subcluster, type) %>%
@@ -298,8 +302,12 @@ mk_nd_data <- function(liger_meta, nd_tb) {
             cor.test = tidy(cor.test(cluster_ct, score)),
             cor.pval = cor.test$p.value,
             cor.fdr = p.adjust(cor.pval),
-            cor.signif = symnum_signif(cor.pval, cor.fdr)
+            cor.signif = symnum_signif(cor.pval, cor.fdr),
+            .groups = "drop"
         )
+    # fill in subclusters that didn't have a sample in nd_tb
+    meta_nd_tb <- meta_nd_tb %>% complete(expand(meta_nd_tb, ct_subcluster, type))
+
 
     return(meta_nd_tb)
 }
