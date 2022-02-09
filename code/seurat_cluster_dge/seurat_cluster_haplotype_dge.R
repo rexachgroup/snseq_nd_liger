@@ -19,7 +19,7 @@ RESOURCES <- list(
     memory = 80,
     walltime = 172800,
     measure.memory = TRUE,
-    max.concurrent.jobs = 2
+    max.concurrent.jobs = 4
 )
 prop_detected_filter <- 0.1
 chunk_size <- 5
@@ -61,13 +61,14 @@ main <- function() {
             !ct_subcluster %in% excludes$ct_subcluster
         )
 
+    # Add haplotype data and filter to samples containing a haplotype designation.
     liger_meta_hap <- liger_meta_subset %>%
         inner_join(subj_meta, by = "library_id") %>%
         filter(Tau_H %in% c("H1/H1", "H1/H2"))
  
 
     # Split by subcluster + add model design. 
-    model_designs <- c("expression ~ Tau_H + clinical_dx + pmi + age + sex + number_umi + percent_mito +  + (1 | library_id)")
+    model_designs <- c("expression ~ Tau_H + clinical_dx + pmi + age + sex + number_umi + percent_mito  + (1 | library_id)")
 
     subcluster_wk <- liger_meta_hap %>%
         inner_join(tibble(model_design = model_designs), by = character()) %>%
@@ -100,7 +101,7 @@ main <- function() {
                 if (all(is.na(broom_list))) {
                     return(NA)
                 }
-                format_lm_output(broom_list, data, model_design, "clinical_dx")
+                format_lm_output(broom_list, data, "clinical_dx|Tau_H")
             }))
     
     saveRDS(subcluster_tb, file.path(out_path_base, "subcluster_wk.rds"), compress = FALSE)
@@ -115,9 +116,8 @@ main <- function() {
         mutate(filepath = file.path(
             out_path_base, 
             "lme_tables",
-            paste(region, cluster_cell_type, sep = "-"),
-            paste0(ct_subcluster, ".csv"))
-        )
+            str_glue("{region}-{cluster_cell_type}-haplotype.csv")
+        ))
 
     pwalk(list(subcluster_tb$filepath, subcluster_tb$broom_join), function(filepath, tb) {
             dir.create(dirname(filepath), recursive = TRUE, showWarnings = FALSE)
@@ -269,7 +269,7 @@ format_lm_output <- function(
             model = paste0(unique(meta$model_design), collapse = ":"),
             region = paste0(unique(meta$region), collapse = ":"),
             cell_type = paste0(unique(meta$cluster_cell_type), collapse = ":"),
-            ct_cluster = paste0(unique(meta$ct_cluster), collapse=":")
+            ct_cluster = paste0(unique(meta$ct_subcluster), collapse=":")
         )
 
     return(lm_filter_out)
