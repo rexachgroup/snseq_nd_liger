@@ -110,6 +110,16 @@ main <- function() {
             dir.create(dirname(filepath), recursive = TRUE, showWarnings = FALSE)
             write_csv(broom_tbl, filepath)
         })
+
+    subcluster_gene_summary <- subcluster_wk %>%
+        filter(!is.na(broom_join)) %>%
+        mutate(gene_cts = pmap_df(., function(...) {
+                cr <- list(...)
+                summarize_gene_counts(cr$broom_join, cr$liger_clusters)
+            })) %>%
+        select(region, cluster_cell_type, ct_subcluster, liger_clusters, gene_cts) %>%
+        unnest(gene_cts)
+    write_csv(subcluster_gene_summary, file.path(out_path_base, "enrichment_dge_summary.csv"))
 }
 
 subcluster_worker <- function(test_cluster, meta, prop_detected_filter) {
@@ -247,6 +257,20 @@ format_lm_output <- function(
         )
 
     return(lm_filter_out)
+}
+
+summarize_gene_counts <- function(broom_join, liger_clusters) {
+    estimate_col <- str_glue("enrichment_cluster{liger_clusters}.estimate")
+    fdr_col <- str_glue("enrichment_cluster{liger_clusters}.p.value.adj")
+    up_ct <- broom_join %>%
+        filter(.data[[estimate_col]] > 0, .data[[fdr_col]] < 0.1) %>%
+        summarize(n = n()) %>%
+        pluck("n")
+    dn_ct <- broom_join %>%
+        filter(.data[[estimate_col]] < 0, .data[[fdr_col]] < 0.1) %>%
+        summarize(n = n()) %>%
+        pluck("n")
+    return(list(up_genes = up_ct, down_genes = dn_ct))
 }
 
 if (!interactive()) {
