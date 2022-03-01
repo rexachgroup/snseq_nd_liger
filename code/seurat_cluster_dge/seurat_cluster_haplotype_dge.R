@@ -19,7 +19,7 @@ RESOURCES <- list(
     memory = 80,
     walltime = 172800,
     measure.memory = TRUE,
-    max.concurrent.jobs = 4
+    max.concurrent.jobs = 2
 )
 prop_detected_filter <- 0.1
 chunk_size <- 5
@@ -32,7 +32,6 @@ main <- function() {
     dir.create(out_path_base, showWarnings = FALSE, recursive = TRUE)
     if (dir.exists(batchtools)) {
         reg <- loadRegistry(batchtools, conf.file = "../batchtools.conf.R", writeable = TRUE)
-        sweepRegistry()
     } else {
         reg <- makeRegistry(batchtools, packages = liblist, conf.file = "../batchtools.conf.R")
     }
@@ -43,8 +42,9 @@ main <- function() {
     excludes <- read_xlsx(clusters_exclude_file)
     subj_meta <- read_xlsx(in_subj_meta) %>%
         filter(!is.na(Tau_H)) %>%
-        mutate(autopsy_id = paste0("P", PIDN), library_id = library_ID...6) %>%
-        select(autopsy_id, library_id, Tau_H)
+        mutate(autopsy_id = `Autopsy ID`, library_id = library_ID...6) %>% 
+        select(autopsy_id, Tau_H) %>%
+        group_by(autopsy_id) %>% slice_head(n = 1)
 
 
     # Filter metadata to get cell ids for matching region, cell_type.
@@ -63,7 +63,7 @@ main <- function() {
 
     # Add haplotype data and filter to samples containing a haplotype designation.
     liger_meta_hap <- liger_meta_subset %>%
-        inner_join(subj_meta, by = "library_id") %>%
+        left_join(subj_meta, by = "autopsy_id") %>%
         filter(Tau_H %in% c("H1/H1", "H1/H2"))
  
 
