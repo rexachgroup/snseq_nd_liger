@@ -19,7 +19,7 @@ main <- function() {
         slice_head(n = 1) %>%
         select(Autopsy.ID, type, score)
     
-    library_celltype_counts_full <- liger_meta %>%
+    library_celltype_counts_full <- liger_meta_in %>%
         filter(cluster_cell_type == cell_type) %>%
         group_by(library_id, ct_subcluster) %>%
         summarize(
