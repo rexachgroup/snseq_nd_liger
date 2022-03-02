@@ -106,6 +106,20 @@ main <- function() {
                 write_csv(tb, filepath)
             }
         })
+    
+    subcluster_gene_summary <- subcluster_tb %>%
+        filter(!is.na(broom_join)) %>%
+        mutate(gene_cts = pmap(., function(...) {
+                cr <- list(...)
+                summarize_gene_counts(cr$broom_join)
+            })) %>%
+        select(region, cluster_cell_type, ct_subcluster, gene_cts)
+
+    subcluster_gene_summary %>%
+        unnest(gene_cts, names_repair = "universal") %>%
+        select(region, cluster_cell_type, ct_subcluster = ct_subcluster...3, dx, up, down) %>%
+        write_csv(file.path(out_path_base, "dx_dge_summary.csv"))
+
 }
 
 subcluster_worker <- function(meta, prop_detected_filter) {
@@ -256,6 +270,29 @@ format_lm_output <- function(
         )
 
     return(lm_filter_out)
+}
+
+summarize_gene_counts <- function(broom_join) {
+    dx <- c("AD", "bvFTD", "PSP-S")
+    dx_map <- map(dx, function(clinical_dx) {
+        estimate_col <- str_glue("clinical_dx{clinical_dx}.estimate")
+        fdr_col <- str_glue("clinical_dx{clinical_dx}.p.value.adj")
+        if (estimate_col %in% colnames(broom_join) && fdr_col %in% colnames(broom_join)) {
+            up_ct <- broom_join %>%
+                group_by(ct_subcluster) %>%
+                filter(.data[[estimate_col]] > 0, .data[[fdr_col]] < 0.1) %>%
+                summarize(up = n())
+            dn_ct <- broom_join %>%
+                group_by(ct_subcluster) %>%
+                filter(.data[[estimate_col]] < 0, .data[[fdr_col]] < 0.1) %>%
+                summarize(down = n())
+            return(tibble(up_genes = up_ct, down_genes = dn_ct))
+        }
+    }) %>% setNames(nm = dx) %>%
+    bind_rows(.id = "dx") %>%
+    unnest(c(up_genes, down_genes), names_repair = "universal") %>%
+    select(dx, ct_subcluster = ct_subcluster...2, up, down)
+    return(dx_map)
 }
 
 if (!interactive()) {
