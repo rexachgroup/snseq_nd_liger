@@ -1,17 +1,15 @@
 # limma across dx contrasts / dx splits within a celltype.
-liblist <- c("tidyverse", "broom", "edgeR", "limma")
+liblist <- c("tidyverse", "broom", "edgeR", "limma", "readxl")
 lapply(liblist, require, character.only = TRUE)
 
 META_FILE <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 OUT_DIR <- "../../analysis/seurat_lchen/subcluster_composition/limma/"
-SUBCLUSTER_FILTER_FILE <- "../../analysis/seurat_lchen/liger_subcluster_filtered_props.rds"
+clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
 
 main <- function() {
     if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR)
     meta_tb <- readRDS(META_FILE)
-    percluster_tb <- readRDS(SUBCLUSTER_FILTER_FILE) %>% 
-        filter(subcluster_3libs_above_10umi) %>%
-        mutate(ct_subcluster = paste(region, ct_subcluster, sep = "-"))
+    excludes <- read_xlsx(clusters_exclude_file)
 
     meta <- meta_tb %>%
         mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-"),
@@ -22,7 +20,7 @@ main <- function() {
     # Count the number of cells belonging to a control sample for each subcluster.
     library_subcluster_counts <- meta %>%
         filter(cluster_cell_type == cell_type,
-               ct_subcluster %in% percluster_tb$ct_subcluster,
+               !ct_subcluster %in% excludes$ct_subcluster,
                ct_subcluster %in% ctl_filter$ct_subcluster,) %>%
         group_by(region, library_id, ct_subcluster) %>%
         summarize(cell_type = unique(cell_type), 
