@@ -5,11 +5,15 @@ lapply(liblist, require, character.only = TRUE)
 META_FILE <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 OUT_DIR <- "../../analysis/seurat_lchen/subcluster_composition/limma/"
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
+SUBCLUSTER_FILTER_FILE <- "../../analysis/seurat_lchen/liger_subcluster_filtered_props.rds"
 
 main <- function() {
     if (!dir.exists(OUT_DIR)) dir.create(OUT_DIR)
     meta_tb <- readRDS(META_FILE)
     excludes <- read_xlsx(clusters_exclude_file)
+    percluster_tb <- readRDS(SUBCLUSTER_FILTER_FILE) %>%
+        filter(subcluster_3libs_above_10umi) %>%
+        mutate(ct_subcluster = paste(region, ct_subcluster, sep = "-"))
 
     meta <- meta_tb %>%
         mutate(ct_subcluster = paste(region, cluster_cell_type, liger_clusters, sep = "-"),
@@ -20,9 +24,10 @@ main <- function() {
     # Count the number of cells belonging to a control sample for each subcluster.
     library_subcluster_counts <- meta %>%
         filter(cluster_cell_type == cell_type,
-               !ct_subcluster %in% excludes$ct_subcluster,
+               ct_subcluster %in% percluster_tb$ct_subcluster,
                ct_subcluster %in% ctl_filter$ct_subcluster,) %>%
         group_by(region, library_id, ct_subcluster) %>%
+        arrange(region, liger_clusters) %>%
         summarize(cell_type = unique(cell_type), 
                   liger_cluster = unique(liger_clusters),
                   subcluster_ct = n())
@@ -58,7 +63,7 @@ main <- function() {
 
     limma_dx_pmi <- limma_fit_contrast(library_cluster_mats, 
         form = "~0 + dx + pmi + age + sex + mean_percent_mito + median_genes")
-    limma_dx_pmi_coefs <- limma_extract_coefs(limma_dx_pmi)
+    limma_dx_pmi_coefs <- limma_extract_coefs(limma_dx_pmi, excludes)
     summarize_limma(limma_dx_pmi_coefs)
 
     write_limma(limma_dx_pmi_coefs, file.path(OUT_DIR, "subcluster_composition_dx_pmi.tsv"))
@@ -114,23 +119,26 @@ limma_fit_contrast <- function(tb, form) {
 }
 
 # extract + format eBayes coefficients
-limma_extract_coefs <- function(tb) {
+limma_extract_coefs <- function(tb, excludes) {
     tb_fmt <- tb %>%
     mutate(
         limma_pval = map(limma_bayes, function(dx_bayes) {
             dx_bayes$p.value %>%
                 as.data.frame %>%
                 rename_with(function(x) paste0("pval", x), everything()) %>%
-                as_tibble(rownames = "ct_subcluster")
+                as_tibble(rownames = "ct_subcluster") %>%
+                filter(!ct_subcluster %in% excludes$ct_subcluster)
         }),
         limma_beta = map(limma, function(limma) {
             limma$coefficients %>%
                 as.data.frame %>%
                 rename_with(function(x) paste0("beta", x), everything()) %>%
-                as_tibble(rownames = "ct_subcluster")
+                as_tibble(rownames = "ct_subcluster") %>%
+                filter(!ct_subcluster %in% excludes$ct_subcluster)
         }),
-        limma_sigma = map(limma_bayes, function(dx_bayes) {
-            tibble(ct_subcluster = rownames(dx_bayes$p.value), sigma = dx_bayes$sigma)
+        limma_sigma = pmap(list(limma_pval, limma_bayes), function(pval_tb, dx_bayes) {
+            ct_i <- match(pval_tb$ct_subcluster, rownames(dx_bayes$p.value))
+            tibble(ct_subcluster = rownames(dx_bayes$p.value)[ct_i], sigma = dx_bayes$sigma[ct_i])
         }),
         limma_p_adjust = map(limma_pval, function(pval_tb) {
             mutate(pval_tb, across(
@@ -148,7 +156,7 @@ summarize_limma <- function(tb) {
         filter(!is.na(limma_pval)) %>%
         mutate(limma_cmb = pmap(list(limma_beta, limma_pval, limma_p_adjust, limma_sigma), function(...) {
             cr <- list(...)
-            Reduce(function(.x, .y) inner_join(.x, .y, by = "ct_subcluster"), cr)
+            Reduce(function(.x, .y) full_join(.x, .y, by = "ct_subcluster"), cr)
         })) %>%
         unnest(limma_cmb)
 }
