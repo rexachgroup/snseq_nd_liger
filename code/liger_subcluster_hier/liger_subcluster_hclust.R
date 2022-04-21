@@ -8,14 +8,6 @@ out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_hier/hclust"
 
 in_cluster_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/subcluster_wk.rds"
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
-excitatory_markers <- read_csv("../../resources/excitatory_markers_20191023.csv")
-
-RESOURCES <- list(
-    ncpus = 4,
-    memory = 32,
-    walltime = 18000,
-    partition = "bigmem"
-)
 
 main <- function() { 
     if (!dir.exists(out_path_base)) dir.create(out_path_base, recursive = TRUE)
@@ -58,26 +50,10 @@ main <- function() {
         saveRDS(list(top_var_genes = cr$beta_hclust_data$top_var_genes, hclust = cr$beta_hclust_data$hclust), rds_path)
         print(rds_path)
     })
+    
+    cluster_ct_group %>% select(-data) %>%
+    saveRDS(file.path(out_path_base, "dge_enrichment_var_beta_hclust.rds"), compress = FALSE)
 
-
-#     # Pull top variable genes.
-#     # Plot hclust structure.
-#     pdf(file.path(out_path_base, "dge_enrichment_var_beta_hclust.pdf"), width = 10, height = 10)
-#     tryCatch(plot(beta_hclust, main = "hclust on top 100 variable genes by module signature beta"))
-#     graphics.off()
-#     
-#     # Plot hclust plus beta expression.
-#     pdf(file.path(out_path_base, "dge_enrichment_var_beta_heatmap.pdf"), width = 25, height = 10)
-#     heatmap_text_matrix(dge_plot_tb, "gene", "ct_subcluster", "beta", row_hclust = TRUE)
-#     graphics.off()
-# 
-#     pdf(file.path(out_path_base, "dge_enrichment_marker_beta_heatmap.pdf"), width = 10, height = 10)
-#     dge_marker_beta_matrix <- enrichment_dge_list %>%
-#         filter(gene %in% marker_tb$gene_symbol) %>%
-#         arrange(var(beta)) %>%
-#         heatmap_text_matrix("gene", "ct_subcluster", "beta", row_hclust = TRUE) %>%
-#         print
-#     graphics.off()
 }
 
 cluster_worker <- function(cluster_wk) { 
