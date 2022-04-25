@@ -6,6 +6,7 @@ l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 HAPLOTYPE_DGE_RDS <- "../../analysis/seurat_lchen/seurat_cluster_lme/seurat_haplotype_dge/subcluster_lme.rds"
 GENE_LIST <- "../../resources/cwow_genelist_WITHNOTES.csv"
 OUT_DIR <- "../../analysis/seurat_lchen/seurat_cluster_lme/seurat_haplotype_plot/"
+plot_ts <- str_glue("{system('md5sum seurat_celltype_cwow_heatmap.R', intern = TRUE)} {date()}")
 
 main <- function() {
     dir.create(OUT_DIR, recursive = TRUE)
@@ -34,9 +35,12 @@ main <- function() {
         geom_text(aes(label = stars)) +
         labs(
             title = str_glue("LME DGE on Tau H1/H2 haplotype"),
-            subtitle = expression(paste("beta" %->% "color, ",
-                "-" %->% "t_statistic < -2, ",
-                "+" %->% "t_statistic > 2")
+            subtitle = str_glue(
+                plot_ts,
+                "\n",
+                "beta -> color, ",
+                "- -> t_statistic < -2, ",
+                "+ -> t_statistic > 2"
             )
         )
     yheight <- (length(unique(plot_tb$y)) * 0.15) + 5
@@ -45,10 +49,6 @@ main <- function() {
     tryCatch(print(plot_gg), error = print)
     graphics.off()
 }
-
-dxRegionMatTheme <- list(
-    geom_tile(),
-)
 
 stars_label <- function(vec) {
     as.character(symnum(vec,
