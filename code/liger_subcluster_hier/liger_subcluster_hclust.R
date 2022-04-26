@@ -51,8 +51,10 @@ main <- function() {
         print(rds_path)
     })
     
-    cluster_ct_group %>% select(-data) %>%
-    saveRDS(file.path(out_path_base, "dge_enrichment_var_beta_hclust.rds"), compress = FALSE)
+    cluster_ct_group %>% 
+        mutate(hclust = map(beta_hclust_data, ~.x$hclust)) %>%
+        select(cluster_cell_type, hclust) %>%
+        saveRDS(file.path(out_path_base, "dge_enrichment_var_beta_hclust.rds"), compress = FALSE)
 
 }
 
@@ -159,6 +161,6 @@ heatmap_text_matrix <- function(tb,
     )
 }
 
-if (!intearactive()) {
+if (!interactive()) {
     main()
 }
