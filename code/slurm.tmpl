@@ -10,7 +10,9 @@
 ##                            with multicore/parallel within each task.
 ## walltime [integer(1)]:     Walltime for this job, in seconds.
 ##                            Must be at least 60 seconds for Slurm to work properly.
-## memory   [integer(1)]:      Total memory in gigabytes.
+## memory   [integer(1)]:     Total memory in gigabytes.
+## array.jobs [bool]:         Submit as an array job.
+## nice     [integer(1)]:     Submit with nice value. Higher = lower priority.
 ##
 ## Default resources can be set in your .batchtools.conf.R by defining the variable
 ## 'default.resources' as a named list.
@@ -30,6 +32,7 @@ log.file = fs::path_expand(log.file)
 #SBATCH --mem=<%= resources$memory %>G
 <%= if (!is.null(resources$partition)) sprintf(paste0("#SBATCH --partition='", resources$partition, "'")) %>
 <%= if (array.jobs) sprintf("#SBATCH --array=1-%i", nrow(jobs)) else "" %>
+<%= if (!is.null(resources$nice)) sprintf("#SBATCH --nice=", resources$nice) %>
 
 ## Run R:
 ## we merge R output with stdout from SLURM, which gets then logged via --output option

@@ -19,6 +19,7 @@ RESOURCES <- list(
     ncpus = 16,
     memory = 80,
     walltime = 172800,
+    partition = "bigmem",
     measure.memory = TRUE
 )
 prop_detected_filter <- 0.1

@@ -19,7 +19,9 @@ RESOURCES <- list(
     ncpus = 1,
     memory = 80,
     walltime = 172800,
-    measure.memory = TRUE
+    measure.memory = TRUE,
+    nice = 100,
+    chunks.as.arrayjobs = TRUE
 )
 prop_detected_filter <- 0.1
 chunk_size <- 40

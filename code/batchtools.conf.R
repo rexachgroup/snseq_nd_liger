@@ -8,7 +8,7 @@ is_nessie <- function() system("hostname", intern = TRUE) == "nessie.bmap.ucla.e
 
 if (is_orion()) {
     compress = FALSE
-    cluster.functions <- makeClusterFunctionsSlurm(template = ORION_SLURM_TMPL)
+    cluster.functions <- makeClusterFunctionsSlurm(template = ORION_SLURM_TMPL, array.jobs = TRUE)
 }
 
 if (is_nessie()) {
