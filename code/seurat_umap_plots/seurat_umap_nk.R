@@ -1,15 +1,15 @@
 # Plot metadata columns overlaid on UMAP embedding.
-# Plot individual gene names overlaid on UMAP embedding.
+# Plot individual nk gene names overlaid on UMAP embedding.
 
 set.seed(0)
 liblist <- c("Seurat", "tidyverse", "readxl", "patchwork", "ggrastr")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 options(future.globals.maxSize = Inf, deparse.max.lines = 5)
 
-out_dir <- "../analysis/seurat_lchen/seurat_umap"
-in_seurat_rds <- "../analysis/pci_import/pci_seurat.rds"
-in_seurat_meta <- "../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
-nk_markers <- "../resources/Immune_markers_toplot_2021.xlsx"
+out_dir <- "../../analysis/seurat_lchen/seurat_umap"
+in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
+in_seurat_meta <- "../../analysis/seurat_lchen/seurat_excitatory_layers/sobj_celltype_meta.rds"
+nk_markers <- "../../resources/Immune_markers_toplot_2021.xlsx"
 sobj_umap_path <- file.path(out_dir, "sobj_meta_umap.rds")
 sobj_umap_expr_subset_path <- file.path(out_dir, "sobj_expr_subset.rds")
 
