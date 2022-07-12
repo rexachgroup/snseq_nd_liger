@@ -18,7 +18,8 @@ RESOURCES <- list(
     ncpus = 1,
     memory = 80,
     walltime = 172800,
-    measure.memory = TRUE
+    measure.memory = TRUE,
+    partition = "bigmem" 
 )
 chunk_size <- 1
 prop_detected_filter <- 0.1
@@ -45,7 +46,8 @@ main <- function() {
             model_design = model_design
         ) %>%
         mutate(
-            ct_cluster = factor(ct_cluster, levels = str_sort(unique(ct_cluster), numeric = TRUE))
+            ct_cluster = factor(ct_cluster, levels = str_sort(unique(ct_cluster), numeric = TRUE)),
+            cluster_celltype_layer = factor(cluster_celltype_layer, levels = str_sort(unique(cluster_celltype_layer)))
         ) %>%
         filter(cluster_celltype_layer %in% c("G234", "G56"))
 
@@ -232,10 +234,10 @@ format_lm_output <- function(
             contains("statistic")
         ) %>%
         mutate(
-            model = paste0(unique(meta$model_design), collapse = ":"),
-            region = paste0(unique(meta$region), collapse = ":"),
-            cell_type = paste0(unique(meta$cluster_cell_type), collapse = ":"),
-            ct_cluster = paste0(unique(meta$ct_cluster), collapse=":")
+            model = paste0(str_sort(unique(meta$model_design)), collapse = ":"),
+            region = paste0(str_sort(unique(meta$region)), collapse = ":"),
+            cell_type = paste0(str_sort(unique(meta$cluster_cell_type)), collapse = ":"),
+            ct_cluster = paste0(str_sort(unique(meta$ct_cluster)), collapse=":")
         )
 
     return(lm_filter_out)
