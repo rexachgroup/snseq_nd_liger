@@ -112,6 +112,46 @@ main <- function() {
             write_csv(broom_tbl, filepath)
         })
 
+    subcluster_wk <- subcluster_wk %>%
+        mutate(broom_join_noterm = pmap(., function(...) {
+                cr <- list(...)
+                gc()
+                tryCatch({
+                    broom_list <- loadResult(cr$job.id)
+                    writeLines(paste(cr$job.id))
+                    fmt_lm_output_noterm(broom_list, cr$data, cr$model_design, "enrichment_cluster")
+                }, 
+                error = function(x) { print(x); return(NA) })
+            }))
+
+    subcluster_wk <- subcluster_wk %>%
+        filter(!is.na(broom_join_noterm)) %>%
+        mutate(broom_join_fmt = pmap(., function(...) {
+                cr <- list(...)
+                cr$broom_join_noterm %>%
+                    mutate(region = fmt_display_region(region), cell_type = fmt_display_celltype(cell_type), liger_clusters = cr$liger_clusters) %>%
+                    mutate(is_signif = (p.value.adj < 0.05)) %>%
+                    arrange(desc(is_signif), desc(abs(estimate)))
+            }))
+
+        
+    subcluster_wk %>%
+        pwalk(., function(...) {
+            cr <- list(...)
+            disp_ct_subcluster <- str_glue("{fmt_display_region(cr$region)}-{fmt_display_celltype(cr$cluster_cell_type)}-{cr$liger_clusters}")
+            filepath <- file.path(
+                out_path_base,
+                "enrichment_tables_disp",
+                str_glue("{disp_ct_subcluster}.csv")
+            )
+            writeLines(as.character(filepath))
+            dir.create(dirname(filepath), showWarnings = F)
+            write_csv(cr$broom_join_fmt, filepath)
+        })
+    
+    bind_rows(subcluster_wk$broom_join_fmt) %>%
+        saveRDS(file.path(out_path_base, "enrichment_tables_disp", "enrichment_dge.rds"))
+
     subcluster_gene_summary <- subcluster_wk %>%
         filter(!is.na(broom_join)) %>%
         mutate(gene_cts = pmap_df(., function(...) {
@@ -260,6 +300,44 @@ format_lm_output <- function(
     return(lm_filter_out)
 }
 
+fmt_lm_output_noterm <- function(
+    lm_out_obj_l,
+    liger_meta,
+    model_design,
+    beta_regex
+) { 
+    lm_tb <- lm_out_obj_l[!is.na(lm_out_obj_l)] %>%
+        bind_rows(.id = "gene") %>%
+        filter(grepl(beta_regex, term) | is.na(term))
+    
+    lm_wider_spec <- build_wider_spec(lm_tb,
+        names_from = "term",
+        values_from = c("estimate", "p.value", "std.error", "statistic", "df"),
+        names_glue = "{.value}"
+    ) %>% arrange(term)
+    
+    lm_wd_tb <- pivot_wider_spec(lm_tb, id_cols = "gene", lm_wider_spec)
+
+    lm_filter_fdr <- lm_wd_tb %>%
+        mutate(across(contains("p.value"), ~p.adjust(.x, method = "BH"), .names = "{.col}.adj"))
+    
+    lm_filter_out <- lm_filter_fdr %>%
+        dplyr::select(
+            gene,
+            contains("estimate"),
+            contains("p.value"),
+            contains("statistic"),
+            contains("std.error"),
+            contains("p.value.fdr")
+        ) %>%
+        mutate(
+            model = model_design,
+            region = paste0(unique(liger_meta$region)),
+            cell_type = paste0(unique(liger_meta$cluster_cell_type))
+        )
+    return(lm_filter_out)
+}
+
 summarize_gene_counts <- function(broom_join, liger_clusters) {
     estimate_col <- str_glue("enrichment_cluster{liger_clusters}.estimate")
     fdr_col <- str_glue("enrichment_cluster{liger_clusters}.p.value.adj")
@@ -272,6 +350,18 @@ summarize_gene_counts <- function(broom_join, liger_clusters) {
         summarize(n = n()) %>%
         pluck("n")
     return(list(up_genes = up_ct, down_genes = dn_ct))
+}
+
+# Rewrite region name to be consistent with display name.
+# insula -> INS
+# preCG -> BA4, Broadmann area 4 on precentral gyrus
+# calcarine -> V1, visual cortex in calcarine fissure
+fmt_display_region <- function(region) {
+    str_replace_all(region, c("insula" = "INS", "preCG" = "BA4", "calcarine" = "V1"))
+}
+
+fmt_display_celltype <- function(ct) {
+    str_replace_all(ct, c("opc" = "oligoprogenitor", "endothelia" = "endothelial"))
 }
 
 if (!interactive()) {
