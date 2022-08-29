@@ -101,7 +101,13 @@ test_statements <- list(
     "preCG-excitatory-4vs14-ctl" = list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "Control"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "Control")),
     "preCG-excitatory-4vs14-ad" =  list(quo(ct_subcluster == "preCG-excitatory-4"  & clinical_dx == "AD"), quo(ct_subcluster == "preCG-excitatory-14" & clinical_dx == "AD")),
     "preCG-microglia-4-alldx-vs-ctl" =  list(quo(ct_subcluster == "preCG-microglia-4" & clinical_dx != "Control"), quo(ct_subcluster == "preCG-microglia-4" & clinical_dx == "Control")),
-    "preCG-microglia-1-ftd-vs-ad-ctl" = list(quo(ct_subcluster == "preCG-microglia-1" & clinical_dx == "bvFTD"),   quo(ct_subcluster == "preCG-microglia-1" & clinical_dx %in% c("AD", "Control")))
+    "preCG-microglia-1-ftd-vs-ad-ctl" = list(quo(ct_subcluster == "preCG-microglia-1" & clinical_dx == "bvFTD"),   quo(ct_subcluster == "preCG-microglia-1" & clinical_dx %in% c("AD", "Control"))),
+    "preCG-oligodendrocyte-11vs9-ctl" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "Control"), quo(ct_subcluster == "preCG-oligodendrocyte-9" & clinical_dx == "Control")),
+    "preCG-oligodendrocyte-11vs9-psp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-oligodendrocyte-9" & clinical_dx == "PSP-S")),
+    "preCG-oligodendrocyte-11vs9-ctlpsp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx %in% c("Control", "PSP-S")), quo(ct_subcluster == "preCG-oligodendrocyte-9" & clinical_dx %in% c("Control", "PSP-S"))),
+    "preCG-oligodendrocyte-11vs14-ctl" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "Control"), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx == "Control")),
+    "preCG-oligodendrocyte-11vs14-psp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx == "PSP-S")),
+    "preCG-oligodendrocyte-11vs14-ctlpsp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx %in% c("Control", "PSP-S")), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx %in% c("Control", "PSP-S")))
 )
 
 main <- function() {
