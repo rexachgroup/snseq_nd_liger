@@ -19,7 +19,6 @@ RESOURCES <- list(
     ncpus = 16,
     memory = 80,
     walltime = 172800,
-    partition = "bigmem",
     measure.memory = TRUE
 )
 prop_detected_filter <- 0.1
@@ -76,9 +75,13 @@ main <- function() {
     subcluster_wk$job.id <- getJobTable()$job.id
     subcluster_wk$prop_detected_filter <- prop_detected_filter
     setJobNames(subcluster_wk$job.id, as.character(subcluster_wk$ct_subcluster))
-    submitJobs(ids, resources = RESOURCES)
+    #submitJobs(ids, resources = RESOURCES)
     saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_wk.rds"), compress = FALSE)
-    waitForJobs()
+    while(nrow(findNotDone()) > 0) {
+        ids <- findNotDone()
+        submitJobs(ids, resources = RESOURCES)
+        waitForJobs()
+    }
 
     subcluster_wk <- subcluster_wk %>%
         mutate(broom_join = pmap(list(data, model_design, job.id), function(data, model_design, job.id) {
