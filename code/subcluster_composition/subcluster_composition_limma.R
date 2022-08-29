@@ -21,7 +21,7 @@ main <- function() {
 
     ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_dx == "Control")) %>% filter(ctl == TRUE)
 
-    # Count the number of cells belonging to a control sample for each subcluster.
+    # Count the number of cells belonging to control samples for each subcluster.
     library_subcluster_counts <- meta %>%
         filter(cluster_cell_type == cell_type,
                ct_subcluster %in% percluster_tb$ct_subcluster,
@@ -32,7 +32,7 @@ main <- function() {
                   liger_cluster = unique(liger_clusters),
                   subcluster_ct = n())
 
-    # Count the total number of cells per Seurat cluster.
+    # Count the total number of cells + summarize metadata per library + Seurat cluster subset.
     library_celltype_counts_full <- meta %>%
         filter(cluster_cell_type == cell_type) %>%
         group_by(region, library_id, cell_type) %>%
@@ -47,6 +47,7 @@ main <- function() {
             cluster_ct = n(),
         )
 
+    # Join tables and pivot to library x subcluster cell counts matrix per Seurat cluster.
     library_pct <- inner_join(library_subcluster_counts, library_celltype_counts_full, by = c("region", "library_id", "cell_type")) %>%
         mutate(subcluster_pct_norm = subcluster_ct / cluster_ct)
 
@@ -70,7 +71,7 @@ main <- function() {
     saveRDS(limma_dx_pmi_coefs, file.path(OUT_DIR, "subcluster_composition_dx_pmi.rds"))
 }
 
-# for each data + matrix row, fit limma model using form, then compute contrasts and estimate eBayes
+# for each metadata + matrix row (one Seurat cluster), fit limma model using form, then compute contrasts and estimate eBayes
 limma_fit_contrast <- function(tb, form) {
     tb %>%
     filter(map_lgl(matrix, ~nrow(.) > 2)) %>%
