@@ -7,11 +7,14 @@ in_cluster_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/su
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
 batchtools <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/batchtools"
 out_path_base <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/enrichment_tables_var"
+out_path_base_f <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/enrichment_tables_var_filtered"
 
 main <- function() {
     dir.create(out_path_base)
+    dir.create(out_path_base_f)
     cluster_wk_in <- readRDS(in_cluster_wk)
-    reg <- loadRegistry(batchtools, conf.file = "../batchtools.conf.R", writeable = F)
+    excludes <- read_xlsx(clusters_exclude_file)
+    reg <- loadRegistry(batchtools, conf.file = "../batchtools.conf.R", writeable = T)
     subcluster_wk <- cluster_wk_in %>%
         mutate(broom_join_noterm = pmap(., function(...) {
                 cr <- list(...)
@@ -63,6 +66,23 @@ main <- function() {
         pmap(., function(...) {
             cr <- list(...)
             out_file <- file.path(out_path_base, str_glue("{cr$region}-{cr$cluster_cell_type}.csv"))
+            writeLines(out_file)
+            cr$data$gene_list %>%
+                bind_rows %>%
+                mutate(ct_subcluster = str_glue("{cr$region}-{cr$cluster_cell_type}-{liger_clusters}")) %>%
+                group_by(liger_clusters) %>%
+                arrange(ct_subcluster, desc(estimate), desc(is_signif)) %>%
+                write_csv(out_file)
+        })
+    
+    subcluster_cluster_wk %>%
+        filter(!ct_subcluster %in% excludes$ct_subcluster) %>%
+        group_by(cluster_cell_type, region) %>%
+        group_nest %>%
+        pmap(., function(...) {
+            cr <- list(...)
+            out_file <- file.path(out_path_base_f, str_glue("{cr$region}-{cr$cluster_cell_type}.csv"))
+            writeLines(out_file)
             cr$data$gene_list %>%
                 bind_rows %>%
                 mutate(ct_subcluster = str_glue("{cr$region}-{cr$cluster_cell_type}-{liger_clusters}")) %>%
@@ -143,3 +163,5 @@ top_var_genes <- function(enrichment_dge_list) {
         arrange(desc(beta_var)) %>%
         slice_head(n = 100) 
 }
+
+if (!interactive()) main()
