@@ -21,7 +21,8 @@ RESOURCES <- list(
     walltime = 172800,
     measure.memory = TRUE,
     nice = 100,
-    chunks.as.arrayjobs = TRUE
+    chunks.as.arrayjobs = TRUE,
+    partition = "bigmem"
 )
 prop_detected_filter <- 0.1
 chunk_size <- 40

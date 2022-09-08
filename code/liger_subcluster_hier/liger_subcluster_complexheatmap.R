@@ -4,7 +4,7 @@
 
 set.seed(0)
 options(bitmapType='png')
-liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "RColorBrewer", "scales", "WGCNA", "cowplot", "broom.mixed")
+liblist <- c("Seurat", "tidyverse", "readxl", "ComplexHeatmap", "circlize", "RColorBrewer", "scales", "WGCNA", "cowplot", "broom.mixed", "patchwork")
 l <- lapply(liblist, function(x) {suppressPackageStartupMessages(require(x, character.only = TRUE, quietly = TRUE))})
 in_cluster_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_enrichment_dge/subcluster_wk.rds"
 in_cluster_dx_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_lme/subcluster_wk.rds"
@@ -24,6 +24,7 @@ options(future.globals.maxSize = Inf)
 main <- function() {
     dir.create(out_path_base, recursive = TRUE, showWarnings = FALSE)
 
+    writeLines("read")
     seurat_obj <- readRDS(in_seurat_rds)
     cluster_wk_in <- readRDS(in_cluster_dge_wk)
     cluster_wk_dx_in <- readRDS(in_cluster_dx_dge_wk)
@@ -56,20 +57,30 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, liger_meta = map(data, function(data) {
         filter(liger_meta_in, ct_subcluster %in% data$ct_subcluster)
     }))
+    writeLines("get enrichment broom data")
     cluster_ct_group <- mutate(cluster_ct_group,
         dge_data = map(data, ~tryCatch(fmt_cluster_dge(.), error = function(x) {print(x); return(NA)}))
     ) %>%
     filter(!is.na(dge_data))
 
+    writeLines("filter top 100 variable genes per subcluster")
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = TRUE))
+    writeLines("hclust per seurat celltype on variable genes")
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
+    writeLines("get gene expression per marker")
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = pmap(list(liger_meta, markers), mk_gene_data, seurat_obj))
+    writeLines("format enrichment dge per cluster")
     cluster_ct_group <- mutate(cluster_ct_group, dge_dx_data = pmap(list(data, markers), fmt_cluster_dx_dge, cluster_wk_dx_in))
+    writeLines("get cell counts per subcluster")
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
+    writeLines("format betas as matrix")
     cluster_ct_group <- mutate(cluster_ct_group, dge_marker_data = pmap(list(dge_data, dge_hclust, markers), mk_beta_marker_data))
+    writeLines("format limma subcluster data")
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
+    writeLines("run bicor of nd data against cluster cell counts")
     cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, nd_tb))
     
+    writeLines("plot format")
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
     cluster_ct_group <- mutate(cluster_ct_group, dge_dx_annot = pmap(list(dge_dx_data, dge_data, dge_hclust), mk_dge_dx_annot))
@@ -79,42 +90,30 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, cluster_nd_heatmap = map(nd_correlation, mk_nd_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(cluster_ct_group, mk_combo_heatmap))
 
+    writeLines("write pdf")
     pwalk(cluster_ct_group, function(...) {
         cr <- list(...)
         heatmap_path <- file.path(out_path_base, str_glue("dge_enrichment_{cr$cluster_cell_type}_var_beta_heatmap.pdf"))
         plot_ts <- str_glue("{system('md5sum liger_subcluster_complexheatmap.R', intern = TRUE)} {date()}")
 
-        title_grob <- textGrob(
-            label = str_glue("{cr$cluster_cell_type}"),
-            x = unit(1, "cm"), y = unit(0.5, "cm"), 
-            just = c(0, 0.5),
-            gp = gpar(fontsize = 32))
-        subtitle_grob <- textGrob(
-            label = plot_ts,
-            x = unit(1, "cm"), y = unit(0.5, "cm"),
-            just = c(0, 0.5),
-            gp = gpar(fontsize = 18))
-        
         tmp_pdf <- function(w, h) { pdf(tempfile(), w, h) }
-        pdf(tempfile())
+
+        if (nrow(cr$dge_marker_data) > 1) {
+            height <- unit((0.5 * nrow(cr$dge_marker_data) + nrow(cr$markers)) + 2, "cm")
+        } else {
+            height <- unit(10, "cm")
+        }
         heatmap_gtree <- grid.grabExpr(
             draw(cr$dge_combo_heatmap, heatmap_legend_list = c(cr$cluster_counts_annot$legends, cr$cluster_limma_annot$legends)),
             wrap = TRUE,
             device = tmp_pdf,
             width = unit(10, "cm"),
-            height = unit(10, "cm")
+            height = height
         )
-        dev.off()
-
-        if (nrow(cr$dge_marker_data) > 1) {
-            height <- unit((0.5 * nrow(cr$dge_marker_data) + nrow(cr$markers)) + 10, "cm")
-        } else {
-            height <- unit(10, "cm")
-        }
 
         print(heatmap_path)
         pdf(heatmap_path, width = unit(15, "cm"), height = height)
-        print(plot_grid(title_grob, subtitle_grob, heatmap_gtree, ncol = 1, rel_heights = c(0.05, 0.05, 1)))
+        print(wrap_plots(heatmap_gtree) + plot_annotation(title = cr$cluster_cell_type, subtitle = plot_ts))
         graphics.off()
     })
 
@@ -210,7 +209,7 @@ mk_beta_heatmap <- function(dge_plot_tb, beta_hclust) {
     )
     heat <- Heatmap(
         dge_beta_matrix,
-        name = " ",
+        name = "gene beta hclust",
         col = colormap,
         na_col = "grey75",
         cluster_columns = beta_hclust,
