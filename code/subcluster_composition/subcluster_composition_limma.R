@@ -21,7 +21,7 @@ main <- function() {
 
     ctl_filter <- meta %>% group_by(ct_subcluster) %>% summarize(ctl = any(clinical_dx == "Control")) %>% filter(ctl == TRUE)
 
-    # Count the number of cells belonging to control samples for each subcluster.
+    # Count the number of cells for each subcluster that has control samples.
     library_subcluster_counts <- meta %>%
         filter(cluster_cell_type == cell_type,
                ct_subcluster %in% percluster_tb$ct_subcluster,
@@ -67,6 +67,7 @@ main <- function() {
     limma_dx_pmi_coefs <- limma_extract_coefs(limma_dx_pmi, excludes)
     summarize_limma(limma_dx_pmi_coefs)
 
+    write_csv(library_pct, file.path(OUT_DIR, "subcluster_composition_ct.csv"))
     write_limma(limma_dx_pmi_coefs, file.path(OUT_DIR, "subcluster_composition_dx_pmi.tsv"))
     saveRDS(limma_dx_pmi_coefs, file.path(OUT_DIR, "subcluster_composition_dx_pmi.rds"))
 }
