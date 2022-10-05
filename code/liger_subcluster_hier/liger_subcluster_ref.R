@@ -15,19 +15,33 @@ main <- function() {
     ora_tb <- read_csv(ORA_FILE)
     hclust_tb <- readRDS(HCLUST_F)
 
+
     dir.create(OUT_DIR)
+    
+    fdr_tb <- fdr_tb %>%
+        mutate(
+            fdr_log = log10(fdr),
+            ext_module = fct_relevel(ext_module, ~str_sort(.x, numeric = T))
+        ) %>%
+        arrange(ct_subcluster, ext_module)
+
+    ora_tb <- ora_tb %>%
+        mutate(
+            ora_log = log1p(ora),
+            ext_module = fct_relevel(ext_module, ~str_sort(.x, numeric = T))
+        ) %>%
+        arrange(ct_subcluster, ext_module)
 
     pwalk(hclust_tb, function(...) {
         cr <- list(...)
         clusters <- cr$hclust$labels
         fdr_f_tb <- fdr_tb %>%
             filter(ct_subcluster %in% clusters) %>%
-            complete(ct_subcluster = clusters) %>%
-            mutate(fdr_log = log10(fdr))
+            complete(ct_subcluster = clusters)
         ora_f_tb <- ora_tb %>%
             filter(ct_subcluster %in% clusters) %>%
-            complete(ct_subcluster = clusters) %>%
-            mutate(ora_log = log1p(ora))
+            complete(ct_subcluster = clusters)
+
         if (!all(is.na(fdr_f_tb$fdr)) & !all(is.na(ora_f_tb$ora))) {
             print(cr$cluster_cell_type)
             out_pdf <- str_glue("{OUT_DIR}/{cr$cluster_cell_type}_ref.pdf")
@@ -47,6 +61,13 @@ main <- function() {
     graphics.off()
 }
 
+seq_pval_colormap <- function(mat, n = 10) {
+    colorRamp2(
+        breaks = seq(min(mat, na.rm = TRUE), max(mat, na.rm = TRUE), length.out = n),
+        colors = rev(viridis_pal()(n))
+    ) 
+}
+
 seq_log_colormap <- function(mat, n = 10) {
     colorRamp2(
         breaks = seq(min(mat, na.rm = TRUE), max(mat, na.rm = TRUE), length.out = n),
@@ -54,12 +75,6 @@ seq_log_colormap <- function(mat, n = 10) {
     ) 
 }
 
-seq_pval_colormap <- function(mat, n = 10) {
-    colorRamp2(
-        breaks = seq(min(mat, na.rm = TRUE), max(mat, na.rm = TRUE), length.out = n),
-        colors = rev(viridis_pal()(n))
-    ) 
-}
 
 div_colormap <- function(mat) {
     colorRamp2(
@@ -81,7 +96,7 @@ mk_complexheatmap <- function(plot_tb, hclust_cols, colorfunc,
         na_col = "grey75",
         cluster_columns = hclust_cols,
         cluster_rows = FALSE,
-        show_row_names = FALSE,
+        show_row_names = TRUE,
         show_column_names = TRUE,
         height = unit(10, "cm")
     )
@@ -115,4 +130,4 @@ wrap_heatmap <- function(ch) {
     return(wrap_plots(heat_gtree))
 }
 
-
+if (!interactive()) main()
