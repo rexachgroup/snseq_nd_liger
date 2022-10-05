@@ -50,18 +50,23 @@ main <- function() {
     
     cluster_ct_group <- cluster_dge_wk %>%
         group_by(cluster_cell_type) %>%
-        group_nest %>%
-        filter(!cluster_cell_type %in% c("t_cell")) %>%
-        left_join(marker_tb, by = "cluster_cell_type")
+        group_nest(.keep = T) %>%
+        filter(!cluster_cell_type %in% c("t_cell"))
 
     cluster_ct_group <- mutate(cluster_ct_group, liger_meta = map(data, function(data) {
         filter(liger_meta_in, ct_subcluster %in% data$ct_subcluster)
     }))
+
     writeLines("get enrichment broom data")
     cluster_ct_group <- mutate(cluster_ct_group,
         dge_data = map(data, ~tryCatch(fmt_cluster_dge(.), error = function(x) {print(x); return(NA)}))
     ) %>%
     filter(!is.na(dge_data))
+    
+    cluster_ct_group <- cluster_ct_group %>%
+        select(-any_of("markers")) %>%
+        left_join(marker_tb, by = "cluster_cell_type")
+
 
     writeLines("filter top 100 variable genes per subcluster")
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = TRUE))
