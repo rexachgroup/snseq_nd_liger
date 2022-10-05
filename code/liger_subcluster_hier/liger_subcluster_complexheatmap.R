@@ -233,6 +233,8 @@ mk_beta_marker_data <- function(dge_data, beta_hclust, annot_gene_list) {
         group_by(gene) %>%
         complete(ct_subcluster = beta_hclust$labels)
     dge_beta_matrix <- pivot_matrix(gene_dge_list, "ct_subcluster", "beta", "gene")
+    dropped_genes <- setdiff(annot_gene_list$gene, rownames(dge_beta_matrix))
+    writeLines(str_glue("{dge_data$data[[1]]$cluster_cell_type[[1]]} dropped genes: ", paste0(dropped_genes, collapse = " ")))
     if (nrow(dge_beta_matrix) == 0) return(matrix())
     stopifnot(all(colnames(dge_beta_matrix) %in% beta_hclust$labels))
     dge_beta_matrix <- dge_beta_matrix[, beta_hclust$labels]
@@ -325,16 +327,16 @@ mk_beta_marker_heatmaps <- function(marker_data, beta_hclust, marker_tb, row_hcl
             group_map(function(.x, .y, ...) {
                 genes <- intersect(rownames(marker_data), .x$gene)
                 gene_order <- .x$gene[.x$gene %in% genes]
-                marker_data <- marker_data[gene_order,]
-                print(dim(marker_data))
-                if (is.matrix(marker_data) && nrow(marker_data) > 0) {
+                marker_ord_data <- marker_data[gene_order,,drop = F]
+                if (is.matrix(marker_ord_data) && nrow(marker_ord_data) > 0) {
                     colormap <- colorRamp2(
                         breaks = c(-2, 0, 2),
                         colors = c(muted("blue"), "white", muted("red"))
                     )
-                    height <- unit(nrow(marker_data) * 10, "mm")
+                    height <- unit(nrow(marker_ord_data) * 10, "mm")
                     heat <- Heatmap(
-                        marker_data,
+                        marker_ord_data,
+                        name = "gene beta",
                         col = colormap,
                         na_col = "grey75",
                         cluster_columns = beta_hclust,
