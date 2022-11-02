@@ -84,6 +84,14 @@ main <- function() {
     }
 
     subcluster_wk <- subcluster_wk %>%
+        mutate(broom_long = pmap(., function(...) {
+            cr <- list(...)
+            broom_list <- loadResult(cr$job.id)
+            writeLines(paste(cr$job.id))
+            format_lm_long_output(broom_list, cr$data, cr$model_design, "enrichment_cluster")
+        }))
+
+    subcluster_wk <- subcluster_wk %>%
         mutate(broom_join = pmap(list(data, model_design, job.id), function(data, model_design, job.id) {
                 gc()
                 tryCatch({
@@ -94,8 +102,10 @@ main <- function() {
                 error = function(x) { print(x); return(NA) })
             }))
 
-    
-    saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_wk.rds"))
+    subcluster_wk %>% 
+        select(-data) %>%
+        saveRDS(file.path(out_path_base, "subcluster_lme_long.rds"), compress = FALSE)
+    saveRDS(subcluster_wk, file.path(out_path_base, "subcluster_wk.rds"), compress = FALSE)
 
     # Merge all subcluster results per region / celltype and write out as separate csv files. 
     subcluster_wk %>%
@@ -137,7 +147,7 @@ main <- function() {
                     arrange(desc(is_signif), desc(abs(estimate)))
             }))
 
-        
+    # reformat region using brodmann area / celltype to match publication region and celltype.
     subcluster_wk %>%
         pwalk(., function(...) {
             cr <- list(...)
@@ -246,6 +256,25 @@ prop_detected_generate <- function(meta, subcluster_so) {
     prop_detected_all <- tibble(gene = rownames(expr_m), prop_detected_all = frac_gz)
 
     return(prop_detected_all)
+}
+
+format_lm_long_output <- function(
+    lm_out_obj_l,
+    liger_meta,
+    model_design,
+    beta_regex){
+
+    lm_tb <- lm_out_obj_l[!is.na(lm_out_obj_l)] %>%
+        bind_rows(.id = "gene") %>%
+        filter(grepl(beta_regex, term) | is.na(term))
+    lm_tb <- lm_tb %>%
+        mutate(
+            p.value.adj = p.adjust(p.value, method = "BH"),
+            model = model_design,
+            region = paste0(unique(liger_meta$region)),
+            cell_type = paste0(unique(liger_meta$cluster_cell_type))
+        )
+    return(lm_tb)
 }
 
 format_lm_output <- function(
@@ -357,7 +386,7 @@ summarize_gene_counts <- function(broom_join, liger_clusters) {
 
 # Rewrite region name to be consistent with display name.
 # insula -> INS
-# preCG -> BA4, Broadmann area 4 on precentral gyrus
+# preCG -> BA4, Brodmann area 4 on precentral gyrus
 # calcarine -> V1, visual cortex in calcarine fissure
 fmt_display_region <- function(region) {
     str_replace_all(region, c("insula" = "INS", "preCG" = "BA4", "calcarine" = "V1"))
