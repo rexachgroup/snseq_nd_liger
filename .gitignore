@@ -6,3 +6,5 @@ tmp/
 analysis/
 conda/
 ext/
+*Zone:Identifier*
+*~$*
