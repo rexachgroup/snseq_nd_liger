@@ -107,7 +107,19 @@ test_statements <- list(
     "preCG-oligodendrocyte-11vs9-ctlpsp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx %in% c("Control", "PSP-S")), quo(ct_subcluster == "preCG-oligodendrocyte-9" & clinical_dx %in% c("Control", "PSP-S"))),
     "preCG-oligodendrocyte-11vs14-ctl" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "Control"), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx == "Control")),
     "preCG-oligodendrocyte-11vs14-psp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx == "PSP-S")),
-    "preCG-oligodendrocyte-11vs14-ctlpsp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx %in% c("Control", "PSP-S")), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx %in% c("Control", "PSP-S")))
+    "preCG-oligodendrocyte-11vs14-ctlpsp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx %in% c("Control", "PSP-S")), quo(ct_subcluster == "preCG-oligodendrocyte-14" & clinical_dx %in% c("Control", "PSP-S"))),
+    "precg-astrocyte-8-ftd" = list(quo(ct_subcluster == "preCG-astrocyte-8" & clinical_dx == "bvFTD"), quo(ct_subcluster == "preCG-astrocyte-8" & clinical_dx != "bvFTD")),
+    "calcarine-astrocyte-2-psp" = list(quo(ct_subcluster == "preCG-astrocyte-8" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-astrocyte-8" & clinical_dx != "PSP-S")),
+    "insula-oligodendrocyte-14-ftd" = list(quo(ct_subcluster == "insula-oligodendrocyte-14" & clinical_dx == "bvFTD"), quo(ct_subcluster == "insula-oligodendrocyte-14" & clinical_dx != "bvFTD")),
+    "precg-oligodendrocyte-9-ftd" = list(quo(ct_subcluster == "preCG-oligodendrocyte-9" & clinical_dx == "bvFTD"), quo(ct_subcluster == "preCG-oligodendrocyte-9" & clinical_dx != "bvFTD")),
+    "precg-oligodendrocyte-11-ftd" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "bvFTD"), quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx != "bvFTD")),
+    "precg-oligodendrocyte-11-psp" = list(quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx == "PSP-S"), quo(ct_subcluster == "preCG-oligodendrocyte-11" & clinical_dx != "PSP-S")),
+    "insula-excitatory-5-ftd" = list(quo(ct_subcluster == "insula-excitatory-5" & clinical_dx == "bvFTD"), quo(ct_subcluster == "insula-excitatory-5" & clinical_dx != "bvFTD")),
+    "calcarine-excitatory-2-psp" = list(quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx != "PSP-S")),
+    "calcarine-excitatory-3-psp" = list(quo(ct_subcluster == "calcarine-excitatory-3" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-excitatory-3" & clinical_dx != "PSP-S")),
+    "insula-excitatory-2-psp" = list(quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "PSP-S"), quo(ct_subcluster == "insula-excitatory-2" & clinical_dx != "PSP-S")),
+    "insula-excitatory-2-ftd" = list(quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "bvFTD"), quo(ct_subcluster == "insula-excitatory-2" & clinical_dx != "bvFTD")),
+    "calcarine-astrocyte-3-psp" = list(quo(ct_subcluster == "calcarine-astrocyte-3" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-astrocyte-3" & clinical_dx != "PSP-S"))
 )
 
 main <- function() {
