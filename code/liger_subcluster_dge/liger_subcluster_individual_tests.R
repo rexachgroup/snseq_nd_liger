@@ -119,7 +119,14 @@ test_statements <- list(
     "calcarine-excitatory-3-psp" = list(quo(ct_subcluster == "calcarine-excitatory-3" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-excitatory-3" & clinical_dx != "PSP-S")),
     "insula-excitatory-2-psp" = list(quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "PSP-S"), quo(ct_subcluster == "insula-excitatory-2" & clinical_dx != "PSP-S")),
     "insula-excitatory-2-ftd" = list(quo(ct_subcluster == "insula-excitatory-2" & clinical_dx == "bvFTD"), quo(ct_subcluster == "insula-excitatory-2" & clinical_dx != "bvFTD")),
-    "calcarine-astrocyte-3-psp" = list(quo(ct_subcluster == "calcarine-astrocyte-3" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-astrocyte-3" & clinical_dx != "PSP-S"))
+    "calcarine-astrocyte-3-psp" = list(quo(ct_subcluster == "calcarine-astrocyte-3" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-astrocyte-3" & clinical_dx != "PSP-S")),
+    "calcarine-excitatory-2and10-vs-7-ad" = list(quo((ct_subcluster == "calcarine-excitatory-2" | ct_subcluster == "calcarine-excitatory-10") & clinical_dx == "AD"), quo(ct_subcluster == "calcarine-excitatory-7" & clinical_dx == "AD")),
+    "calcarine-2and10-vs-7-ftd" = list(quo((ct_subcluster == "calcarine-excitatory-2" | ct_subcluster == "calcarine-excitatory-10") & clinical_dx == "bvFTD"), quo(ct_subcluster == "calcarine-excitatory-7" & clinical_dx == "bvFTD")),
+    "calcarine-2and10-vs-7-psp" = list(quo((ct_subcluster == "calcarine-excitatory-2" | ct_subcluster == "calcarine-excitatory-10") & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-excitatory-7" & clinical_dx == "PSP-S")),
+    "calcarine-excitatory-2-vs-14-ad" = list(quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "AD"), quo(ct_subcluster == "calcarine-excitatory-14" & clinical_dx == "AD")),
+    "calcarine-excitatory-2-vs-14-ftd" = list(quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "bvFTD"), quo(ct_subcluster == "calcarine-excitatory-14" & clinical_dx == "bvFTD")),
+    "calcarine-excitatory-2-vs-14-psp" = list(quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "PSP-S"), quo(ct_subcluster == "calcarine-excitatory-14" & clinical_dx == "PSP-S")),
+    "calcarine-excitatory-2-vs-14-ctl" = list(quo(ct_subcluster == "calcarine-excitatory-2" & clinical_dx == "Control"), quo(ct_subcluster == "calcarine-excitatory-14" & clinical_dx == "Control"))
 )
 
 main <- function() {
@@ -185,6 +192,7 @@ main <- function() {
 
     # Fetch results.
     subcluster_wk <- subcluster_wk %>%
+        filter(job_id %in% findDone()$job.id) %>%
         mutate(broom_join = pmap(., function(...) {
                 gc()
                 current_row <- list(...)
@@ -242,7 +250,7 @@ subcluster_worker <- function(meta, prop_detected_filter) {
     subcluster_so <- subset(subcluster_so, cells = meta$cell_ids, features = detected$gene)
     rm(envdata)
     gc()
-    return(run_lmer_de(subcluster_so, meta, down_sample_cells = 10000, cores = RESOURCES$ncores))
+    return(run_lmer_de(subcluster_so, meta, down_sample_cells = NULL, cores = RESOURCES$ncores))
 }
 
 run_lmer_de <- function(
