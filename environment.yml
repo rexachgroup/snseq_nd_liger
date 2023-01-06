@@ -23,8 +23,9 @@ dependencies:
   - r-wgcna
   - bioconductor-variancepartition
   - r-viridis
+  - r-multcomp
   - r-seurat=4.0.0
   - r-ggfortify
   - r-spatstat=1.64_1
-  - dvc
+  - r-ggalt
 prefix: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
