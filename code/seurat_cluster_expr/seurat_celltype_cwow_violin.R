@@ -1,4 +1,5 @@
-# Violin plot across dx for cwow genelist.
+# Calculate pseudobulk per sample for cwow genelist.
+# Plot as violin plot.
 
 liblist <- c("Seurat", "ggplot2", "tidyverse", "patchwork", "ragg")
 l <- lapply(liblist, library, character.only = TRUE, quietly = TRUE)
@@ -26,6 +27,9 @@ main <- function() {
 
     celltype_split <- celltype_split %>%
         mutate(sobj_ct = map(data, ~subset(subset_sobj, cells = .$barcode)))
+
+    celltype_split <- celltype_split %>%
+        mutate(sobj_ct_test = map(sobj_ct, dx_dge))
     
     celltype_split <- celltype_split %>%
         mutate(pseudo_bulk = map(sobj_ct, pseudo_bulk_subj))
@@ -47,8 +51,30 @@ main <- function() {
         )
         graphics.off()
     })
+    celltype_split %>%
+        select(-data, -sobj_ct, -pseudo_bulk) %>%
+        unnest(sobj_ct_test) %>%
+        write_csv(file.path(OUT_DIR, "seurat_dx_test.csv"))
 }
 
+# dge per dx v. control.
+# p_val_adj is based on total gene list of cluster before filtering (n = 33)
+dx_dge <- function(sobj) {
+    ident_col = "clinical_dx"
+    ident_base = "Control"
+    test_idents <- setdiff(unique(sobj[[ident_col, drop = T]]), ident_base)
+    map(test_idents, function(ident_test) {
+        FindMarkers(sobj,
+            group.by = ident_col,
+            ident.1 = ident_test,
+            ident.2 = ident_base,
+            logfc.threshold = 0,
+            min.pct = 0,
+            test.use = "wilcox",
+        ) %>% as_tibble(rownames = "gene")
+    }) %>% setNames(nm = test_idents) %>% bind_rows(.id = "ident.1") %>%
+    mutate(ident.2 = ident_base)
+}
 violin_genelist_patchwork <- function(sobj, pseudo_bulk, genes) {
     genes <- genes[genes %in% rownames(sobj)]
     ndim <- ceiling(sqrt(length(genes)))
