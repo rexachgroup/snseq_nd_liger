@@ -1,10 +1,11 @@
-# MDS plot of scenic rss scores + draw ellipses around top 10 terms per dx
+# MDS plot of scenic rss scores and group top 10 terms per dx.
 
 liblist <- c("tidyverse", "ggrepel", "ggalt")
 l <- lapply(liblist, library, character.only = TRUE, quietly = TRUE)
 
 SCENIC_TABLES <- "../../resources/scenic/rss"
 OUT_DIR <- "../../analysis/seurat_lchen/scenic_mds/"
+plot_ts <- function() { str_glue("{date()} {system('md5sum scenic_mds.R', intern = T)}")}
 
 main <- function() {
     dir.create(OUT_DIR)
@@ -16,35 +17,28 @@ main <- function() {
         region = str_match(basename, "(.+)_(.+)")[,3],
         out_path = str_glue("{OUT_DIR}/{basename}_mds_grouped.pdf")
     )
+
+    # Compute mds on scenic rss scores.
     tables <- tables %>%
-        mutate(regulon_coords = map(data, function(tb) {
-            mds <- as.data.frame(cmdscale(dist(tb[2:5]), k = 2)) # AD_[region], bvFTD_[region], Control_[region], PSP-S_[region]
+        mutate(regulon_coords = pmap(., function(...) {
+            cr <- list(...)
+            mds <- as.data.frame(cmdscale(dist(cr$data[2:5]), k = 2)) # AD_[region], bvFTD_[region], Control_[region], PSP-S_[region]
             colnames(mds) <- c("mds1", "mds2")
             return(mds)
         }))
-    # bind original table with mds results
+    # Bind original table with mds coordinates.
     tables <- tables %>%
         mutate(plot_tb = pmap(., function(...) {
             cr <- list(...)
             tb <- rename(cr$data, regulon = `...1`)
-            tb <- mutate(tb, regulon = str_match(regulon, "^[a-zA-Z0-9]+")[,1]) # only 1st alphanumeric group, drop _exended and (\\d+ g)
+            tb <- mutate(tb, regulon = str_match(regulon, "^[a-zA-Z0-9]+")[,1]) # only 1st alphanumeric component, drop _exended and (\\d+g)
             tb <- bind_cols(tb, cr$regulon_coords)
             return(tb)
-        }))
+        })
 
-    #     tables <- tables %>%
-    #         mutate(plot_obj = pmap(., function(...) {
-    #             cr <- list(...)
-    #             non_grouped <- cr$plot_tb %>% filter(color == "black")
-    #             grouped <- cr$plot_tb %>% filter(color != "black")
-    #             ggplot(cr$plot_tb, aes(x = mds1, y = mds2, colour = color, fill = color, label = regulon)) +
-    #                 scale_color_manual(values = c("AD_top10" = "red", "FTD_top10" = "green", "PSP_top10" = "blue", "CTL_top10" = "purple", "black" = "black")) +
-    #                 scale_fill_manual(values = c("AD_top10" = "red", "FTD_top10" = "green", "PSP_top10" = "blue", "CTL_top10" = "purple", "black" = "black")) +
-    #                 geom_point() + 
-    #                 geom_label_repel(fill = "white") +
-    #                 stat_ellipse(data = grouped)
-    #         }))
-
+    # Format plot. 
+    # Draw one geom_encircle for each of the top 10 regulons per dx.
+    # Label top regulons with geom_label_repel.
     tables <- tables %>%
         mutate(plot_obj = pmap(., function(...) {
             cr <- list(...)
@@ -52,47 +46,33 @@ main <- function() {
             ftd_pts <- slice_col_head(cr$plot_tb, str_glue("bvFTD_{cr$celltype}_rank"), 10)
             psp_pts <- slice_col_head(cr$plot_tb, str_glue("PSP-S_{cr$celltype}_rank"), 10)
             ctl_pts <- slice_col_head(cr$plot_tb, str_glue("Control_{cr$celltype}_rank"), 10)
+            all_pts <- bind_rows(ctl_pts, ad_pts, ftd_pts, psp_pts) %>% 
+                filter(!duplicated(regulon))
             
            ggplot(cr$plot_tb, aes(x = mds1, y = mds2, label = regulon)) +
+               geom_encircle(data = ctl_pts, aes(color = "Control"), size = 3, s_shape = 1, expand = 0.005) +
+               geom_encircle(data = ad_pts, aes(color = "AD"), size = 3, s_shape = 1, expand = 0.005) +
+               geom_encircle(data = ftd_pts, aes(color = "FTD"), size = 3, s_shape = 1, expand = 0.005) +
+               geom_encircle(data = psp_pts, aes(color = "PSP"), size = 3, s_shape = 1, expand = 0.005) +
                geom_point() +
-               geom_label_repel(fill = "white") +
-               geom_encircle(data = ad_pts, color = "red", s_shape = 1, expand = 0) +
-               geom_encircle(data = ftd_pts, color = "green", s_shape = 1, expand = 0) +
-               geom_encircle(data = psp_pts, color = "blue", s_shape = 1, expand = 0) +
-               geom_encircle(data = ctl_pts, color = "purple", s_shape = 1, expand = 0) +
-               theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+               geom_label_repel(data = all_pts, fill = "white", max.overlaps = 999) +
+               theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+               scale_color_manual(name = "dx", breaks = c("Control", "AD", "FTD", "PSP"), values = c("gray25", "red2", "blue2", "gold2"))+ 
+               scale_fill_manual(name = "dx", breaks = c("Control", "AD", "FTD", "PSP"), values = c("gray25", "red2", "blue2", "gold2"))+ 
+               labs(title = str_glue("{unique(cr$celltype)} {unique(cr$region)} scenic mds"))
         }))
     
+    pdf(file.path(OUT_DIR, "scenic_mds.pdf"), width = 15, height = 15)
+    ts <- plot_ts()
     pwalk(tables, function(...) {
         cr <- list(...)
-        pdf(cr$out_path, width = 20, height = 20)
-        print(cr$plot_obj)
-        dev.off()
+        print(cr$plot_obj + labs(subtitle = ts))
     })
+    graphics.off()
 }
 
 slice_col_head <- function(tb, col, thresh) {
     tb %>% filter(.data[[col]] < thresh)
-}
-
-top10_rank_color_row <- function(...) {
-    tb_row <- tibble(...)
-    threshold <- 15
-    ad_col <- str_subset(colnames(tb_row), "AD_.*_rank")
-    ftd_col <- str_subset(colnames(tb_row), "bvFTD_.*_rank")
-    psp_col <- str_subset(colnames(tb_row), "PSP-S_.*_rank")
-    ctl_col <- str_subset(colnames(tb_row), "Control_.*_rank")
-    if (tb_row[[ad_col]] < threshold) {
-        return("AD_top10")
-    } else if (tb_row[[ftd_col]] < threshold) {
-        return("FTD_top10")
-    } else if (tb_row[[psp_col]] < threshold) {
-        return("PSP_top10")
-    } else if (tb_row[[ctl_col]] < threshold) {
-        return("CTL_top10")
-    } else {
-        return("black")
-    }
 }
 
 main()
