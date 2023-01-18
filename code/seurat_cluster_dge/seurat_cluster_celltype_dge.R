@@ -1,4 +1,4 @@
-# DGE of MAPT locus across celltype, per dx.
+# DGE of MAPT locus across celltype, per dx. Use excitatory as base ident.
 
 liblist <- c("Seurat", "tidyverse", "lme4", "lmerTest", "broom.mixed")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
