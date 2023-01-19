@@ -1,8 +1,9 @@
 # Plot per-dx lme betas from liger_subcluster_lme on a heatmap.
 set.seed(0)
-liblist <- c("Seurat", "tidyverse", "scales", "readxl", "batchtools", "ComplexHeatmap", "circlize")
+liblist <- c("Seurat", "tidyverse", "scales", "readxl", "batchtools", "ComplexHeatmap", "circlize", "patchwork")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
-options(future.globals.maxSize = Inf, deparse.max.lines = 5)
+options(future.globals.maxSize = Inf, deparse.max.lines = 5)  
+plot_ts <- function() str_glue("{system('md5sum liger_subcluster_lme_heatmap.R', intern = T)} {date()}")
 
 in_cluster_wk <- "../../analysis/seurat_lchen/liger_subcluster_lme/subcluster_wk.rds"
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
@@ -27,7 +28,8 @@ main <- function() {
             (region == "preCG" & cluster_cell_type == "endothelia") |
             (region == "preCG" & cluster_cell_type == "astrocyte") |
             (region == "calcarine" & cluster_cell_type == "astrocyte") |
-            (region == "preCG" & cluster_cell_type == "opc")
+            (region == "preCG" & cluster_cell_type == "opc") |
+            (region == "insula" & cluster_cell_type == "excitatory")
         )
     
     dx <- c("AD", "bvFTD", "PSP-S")
@@ -64,34 +66,56 @@ main <- function() {
         select(region, dx, cluster_cell_type, ct_subcluster, lme_marker_estimates) %>%
         unnest(lme_marker_estimates) %>%
         inner_join(marker_gene_tb, by = "gene") %>%
+        group_by(region, cluster_cell_type) %>%
         mutate(
+            n = length(unique(gene)) * length(unique(ct_subcluster)),
             gene = fct_rev(fct_relevel(gene, marker_gene_tb$gene)),
-            fdr_2 = p.adjust(pval, n = nrow(marker_gene_tb), method = "BH"),
-            stars = unclass(symnum(pval, corr = FALSE, na = FALSE, cutpoints = c(0, 0.0001, 0.005, 0.01, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", ".", " "))),
+            p_val_adj = p.fdr(pval, n = n),
             ct_subcluster = fct_drop(ct_subcluster),
             column_id = paste(dx, ct_subcluster, sep = "_")
-        ) %>%
-        glimpse
+        )
 
+    plot_gene_nest <- plot_gene_list %>%
+        group_nest(keep = T) %>%
+        mutate(heatmap = map(data, plot_lme_result, row_annot))
 
-    #     plot_gene_list_nafill <- plot_gene_list %>%
-    #         complete(gene, nesting(region, dx, ct_subcluster))
+    plot_gene_nest <- plot_gene_nest %>%
+        mutate(        
+            xwidth = map(data, ~0.25 * length(unique(.x$column_id))),
+            yheight = map(data, ~0.25 * length(unique(.x$gene)))
+        )
+
+    pwalk(plot_gene_nest, function(...) {
+        cr <- list(...)
+        cairo_pdf(file.path(out_path_base, str_glue("subcluster_lme_heatmap_{cr$region}_{cr$cluster_cell_type}.pdf")), width = cr$xwidth, height = cr$yheight)
+        print(cr$heatmap)
+        dev.off()
+    })
+    graphics.off()
+}
+
+plot_lme_result <- function(lme_result, row_annot) { 
+    lme_result <- ungroup(lme_result)
+    # Add stars; save legend for printing
+    # plot_matrix_stars <- symnum(lme_result$p_val_adj, corr = FALSE, na = FALSE, cutpoints = c(0, 0.0001, 0.005, 0.01, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", ".", " "))
+    plot_matrix_stars <- symnum(lme_result$p_val_adj, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", " "))
+    lme_result$stars <- as.character(plot_matrix_stars)
+    plot_matrix_stars_legend <- as.character(attr(plot_matrix_stars, "legend"))
 
     # Begin ComplexHeatmap formatting
-    plot_matrix_fill <- pivot_matrix(plot_gene_list, "column_id", "z", "gene")
-    plot_matrix_text <- pivot_matrix(plot_gene_list, "column_id", "stars", "gene")
+    plot_matrix_fill <- pivot_matrix(lme_result, "column_id", "z", "gene")
+    plot_matrix_text <- pivot_matrix(lme_result, "column_id", "stars", "gene")
 
     row_annot <- marker_gene_tb %>% filter(gene %in% rownames(plot_matrix_fill))
     plot_row_order <- as.character(row_annot$gene)
     plot_row_split <- as.character(row_annot$disease)
-    col_annot <- plot_gene_list %>%
+    col_annot <- lme_result %>%
         group_by(dx, ct_subcluster) %>%
         slice_head() %>%
         ungroup
     plot_col_order <- col_annot$column_id
     plot_col_label <- as.character(col_annot$ct_subcluster)
-    plot_col_split <- col_annot %>% select(dx, region, cluster_cell_type) #paste(col_annot$dx, col_annot$region, col_annot$cluster_cell_type, sep = "_")
-
+    plot_col_split <- col_annot %>% select(dx, region, cluster_cell_type)
     plot_matrix_fill <- plot_matrix_fill[plot_row_order, plot_col_order]
     plot_matrix_text <- plot_matrix_text[plot_row_order, plot_col_order]
 
@@ -107,12 +131,10 @@ main <- function() {
         colors = c(muted("blue"), "white", muted("red"))
     )
 
-    xwidth = 0.25 * ncol(plot_matrix_fill) 
-    yheight = 0.25 * nrow(plot_matrix_fill)
-    pdf(file.path(out_path_base, "subcluster_lme_heatmap.pdf"), width = xwidth, height = yheight)
-    print(Heatmap(
+    heatmap <- Heatmap(
         plot_matrix_fill, 
         col = colormap,
+        name = "subcluster lme beta",
         na_col = "grey75",
         row_order = plot_row_order,
         column_order = plot_col_order,
@@ -125,14 +147,32 @@ main <- function() {
         row_title_gp = gpar(fontsize = 10),
         column_title_gp = gpar(fontsize = 10),
         row_names_side = "left"
-    ))
-    #     ggplot(plot_gene_list, aes(x = ct_subcluster, y = gene, fill = z, label = stars)) +
-    #         geom_tile() +
-    #         geom_text() +
-    #         facet_wrap(c("dx", "region"), scales = "free", ncol = 99) +
-    #         scale_fill_gradient2(low = muted("blue"), mid = "white", high = muted("red"), na.value = "grey75") +
-    #         theme(axis.text.x = element_text(angle = 90))
-    graphics.off()
+    )
+    
+    pdf(tempfile())
+    hgrob <- grid.grabExpr(draw(heatmap))
+    dev.off()
+    
+    wrap_plots(hgrob) + plot_annotation(title = str_glue("subcluster lme z \n adj_p_val (n = {lme_result$n}) \n (stars = {plot_matrix_stars_legend})"), subtitle = plot_ts())
+}
+
+p.fdr <- function(p, n) {
+    nm <- names(p)
+    p <- as.numeric(p)
+    p0 <- setNames(p, nm)
+    if (all(nna <- !is.na(p)))
+        nna <- TRUE
+    p <- p[nna]
+    lp <- length(p)
+    if (n <= 1)
+        return(p0)
+    p0[nna] <- {
+        i <- lp:1L
+        o <- order(p, decreasing = TRUE)
+        ro <- order(o)
+        pmin(1, cummin(n/i * p[o]))[ro]
+    }
+    p0
 }
 
 pivot_matrix <- function(tb, cols_from, values_from, rows_from) {
@@ -144,64 +184,6 @@ pivot_matrix <- function(tb, cols_from, values_from, rows_from) {
         as.matrix()
     rownames(tb_matrix) <- tb_pivot %>% rowwise() %>% summarize(paste(c_across(rows_from), collapse = "|"), .groups = "drop") %>% pluck(1)
     return(tb_matrix)
-}
-
-# Override n >= lp in p.adjust
-p.adjust <- function (p, method = p.adjust.methods, n = length(p)) {
-    method <- match.arg(method)
-    if (method == "fdr")
-        method <- "BH"
-    nm <- names(p)
-    p <- as.numeric(p)
-    p0 <- setNames(p, nm)
-    if (all(nna <- !is.na(p)))
-        nna <- TRUE
-    p <- p[nna]
-    lp <- length(p)
-    #stopifnot(n >= lp)
-    if (n <= 1)
-        return(p0)
-    if (n == 2 && method == "hommel")
-        method <- "hochberg"
-    p0[nna] <- switch(method, bonferroni = pmin(1, n * p), holm = {
-        i <- seq_len(lp)
-        o <- order(p)
-        ro <- order(o)
-        pmin(1, cummax((n + 1L - i) * p[o]))[ro]
-    }, hommel = {
-        if (n > lp) p <- c(p, rep.int(1, n - lp))
-        i <- seq_len(n)
-        o <- order(p)
-        p <- p[o]
-        ro <- order(o)
-        q <- pa <- rep.int(min(n * p/i), n)
-        for (j in (n - 1L):2L) {
-            ij <- seq_len(n - j + 1L)
-            i2 <- (n - j + 2L):n
-            q1 <- min(j * p[i2]/(2L:j))
-            q[ij] <- pmin(j * p[ij], q1)
-            q[i2] <- q[n - j + 1L]
-            pa <- pmax(pa, q)
-        }
-        pmax(pa, p)[if (lp < n) ro[1L:lp] else ro]
-    }, hochberg = {
-        i <- lp:1L
-        o <- order(p, decreasing = TRUE)
-        ro <- order(o)
-        pmin(1, cummin((n + 1L - i) * p[o]))[ro]
-    }, BH = {
-        i <- lp:1L
-        o <- order(p, decreasing = TRUE)
-        ro <- order(o)
-        pmin(1, cummin(n/i * p[o]))[ro]
-    }, BY = {
-        i <- lp:1L
-        o <- order(p, decreasing = TRUE)
-        ro <- order(o)
-        q <- sum(1/(1L:n))
-        pmin(1, cummin(q * n/i * p[o]))[ro]
-    }, none = p)
-    p0
 }
 
 if (!interactive()) {
