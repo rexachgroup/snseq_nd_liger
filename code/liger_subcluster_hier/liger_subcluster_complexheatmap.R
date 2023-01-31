@@ -13,7 +13,6 @@ in_seurat_liger <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
 
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
-#excitatory_markers <- "../../resources/excitatory_layers_20210318.csv"
 marker_file <- "../../resources/CelltypeMarkers_biologicalGroupings.xlsx"
 in_bulk_meta <- "../../resources/individual_nd.rds"
 
@@ -242,7 +241,6 @@ mk_beta_marker_data <- function(dge_data, beta_hclust, annot_gene_list) {
 }
 
 # - Subset seurat object to cells in dge_plot_tb / genes in annot_gene_list.
-# - Regress out variables for display purposes using negative binomial model.
 # - For each gene, get expression matrix and convert to tibble with cols expr / umi.
 #   - join with cell types' metadata and split along ct_subcluster to get a list of vectors containing each subclusters' expression values.
 # Returns a list of lists:
@@ -252,7 +250,6 @@ mk_beta_marker_data <- function(dge_data, beta_hclust, annot_gene_list) {
 mk_gene_data <- function(liger_meta, annot_gene_list, sobj) {
     feature_list <- intersect(annot_gene_list$gene, rownames(GetAssayData(sobj, slot = "scale.data")))
     subset_sobj <- subset(sobj, cells = liger_meta$UMI, features = feature_list)
-    #sobj_scaled <- ScaleData(subset_sobj, model.use = "negbinom", vars.to.regress = c("pmi", "age", "sex", "number_umi", "percent_mito"), assay = "RNA")
     sobj_mat <- GetAssayData(subset_sobj, slot = "scale.data")
 
     subcluster_expr_vecs <- map(feature_list, function(gene_name) {
