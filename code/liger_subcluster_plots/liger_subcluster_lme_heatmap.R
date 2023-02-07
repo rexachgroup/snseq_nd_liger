@@ -87,9 +87,10 @@ main <- function() {
 
     pwalk(plot_gene_nest, function(...) {
         cr <- list(...)
-        cairo_pdf(file.path(out_path_base, str_glue("subcluster_lme_heatmap_{cr$region}_{cr$cluster_cell_type}.pdf")), width = cr$xwidth, height = cr$yheight)
+        pdf(file.path(out_path_base, str_glue("subcluster_lme_heatmap_{cr$region}_{cr$cluster_cell_type}.pdf")), width = cr$xwidth, height = cr$yheight)
         print(cr$heatmap)
         dev.off()
+        write.csv(cr$data, file.path(out_path_base, str_glue("subcluster_lme_heatmap_{cr$region}_{cr$cluster_cell_type}.csv")))
     })
     graphics.off()
 }
@@ -97,7 +98,6 @@ main <- function() {
 plot_lme_result <- function(lme_result, row_annot) { 
     lme_result <- ungroup(lme_result)
     # Add stars; save legend for printing
-    # plot_matrix_stars <- symnum(lme_result$p_val_adj, corr = FALSE, na = FALSE, cutpoints = c(0, 0.0001, 0.005, 0.01, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", ".", " "))
     plot_matrix_stars <- symnum(lme_result$p_val_adj, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", " "))
     lme_result$stars <- as.character(plot_matrix_stars)
     plot_matrix_stars_legend <- as.character(attr(plot_matrix_stars, "legend"))
