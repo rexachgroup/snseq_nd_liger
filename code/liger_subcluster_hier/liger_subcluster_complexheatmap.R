@@ -11,6 +11,7 @@ in_cluster_dx_dge_wk <- "../../analysis/seurat_lchen/liger_subcluster_lme/subclu
 in_limma <- "../../analysis/seurat_lchen/subcluster_composition/limma/subcluster_composition_dx_pmi.rds"
 in_seurat_liger <- "../../analysis/seurat_lchen/liger_subcluster_metadata.rds"
 in_seurat_rds <- "../../analysis/pci_import/pci_seurat.rds"
+in_nd_tb <- "../../analysis/bulk_meta/nd_tb.rds"
 
 clusters_exclude_file <- "../../resources/subclusters_removed_byQC_final.xlsx"
 marker_file <- "../../resources/CelltypeMarkers_biologicalGroupings.xlsx"
@@ -31,17 +32,17 @@ main <- function() {
     bulk_meta <- readRDS(in_bulk_meta)
     excludes <- read_xlsx(clusters_exclude_file)
     limma_tb <- readRDS(in_limma)
+    nd_tb <- readRDS(in_nd_tb)
     marker_tb <- read_xlsx(marker_file, sheet = "combined_markers") %>%
         mutate(group = as.factor(replace_na(group, "markers"))) %>%
         group_by(cluster_cell_type) %>%
         group_nest(.key = "markers")
 
-    nd_tb <- bulk_meta %>%
-        mutate(Autopsy.ID = paste0("P", Autopsy.ID)) %>%
-        group_by(Autopsy.ID, type) %>%
-        slice_head(n = 1) %>%
-        select(Autopsy.ID, type, score) %>%
-        mutate(Autopsy.ID = factor(Autopsy.ID), type = factor(type))
+    subset_sobj <- subset(seurat_obj, features = intersect(
+        rownames(seurat_obj), marker_tb %>% unnest(markers) %>% pluck("gene")
+    ))
+    rm(seurat_obj)
+    gc()
 
     cluster_dge_wk <- cluster_wk_in %>%
         filter(!ct_subcluster %in% excludes$ct_subcluster) %>%
@@ -72,7 +73,7 @@ main <- function() {
     writeLines("hclust per seurat celltype on variable genes")
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
     writeLines("get gene expression per marker")
-    cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = pmap(list(liger_meta, markers), mk_gene_data, seurat_obj))
+    cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = pmap(list(liger_meta, markers), mk_gene_data, subset_sobj))
     writeLines("format enrichment dge per cluster")
     cluster_ct_group <- mutate(cluster_ct_group, dge_dx_data = pmap(list(data, markers), fmt_cluster_dx_dge, cluster_wk_dx_in))
     writeLines("get cell counts per subcluster")
@@ -227,6 +228,7 @@ mk_beta_heatmap <- function(dge_plot_tb, beta_hclust) {
 
 mk_beta_marker_data <- function(dge_data, beta_hclust, annot_gene_list) {
     # dge data may not have results for all subclusters; using complete() to match beta_hclust subclusters
+    if (is.null(annot_gene_list)) return(matrix())
     gene_dge_list <- dge_data %>%
         filter(gene %in% annot_gene_list$gene) %>%
         group_by(gene) %>%
@@ -278,14 +280,18 @@ symnum_signif <- function(pval, pval.fdr) {
 }
 
 # Run bicor of nd values against cluster cell counts.
+bicor_trycatch <- function(x, y) { tryCatch(bicor(x, y, use = "pairwise.complete.obs", pearsonFallback = "none")[, 1], error = function(x) { return(tibble()) } ) }
+cor_trycatch <- function(x, y) { tryCatch(tidy(cor.test(x, y)), error = function(x) { return (tibble()) }) }
+
 mk_nd_data <- function(liger_meta, nd_tb) {
     library_celltype_counts_full <- liger_meta %>%
         filter(cluster_cell_type == cell_type) %>%
         mutate(ct_subcluster = fct_drop(ct_subcluster)) %>%
-        group_by(library_id, ct_subcluster) %>%
+        group_by(library_id, ct_subcluster, region) %>%
         summarize(
             autopsy_id = unique(autopsy_id),
             clinical_dx = unique(clinical_dx),
+            region = unique(region),
             age = unique(age),
             pmi = unique(pmi),
             sex = unique(sex),
@@ -297,20 +303,25 @@ mk_nd_data <- function(liger_meta, nd_tb) {
         )
 
     # bicor / cor.test on cell counts per subcluster.
-    meta_nd_tb <- left_join(library_celltype_counts_full, nd_tb, by = c("autopsy_id" = "Autopsy.ID")) %>%
+    meta_nd_tb <- left_join(library_celltype_counts_full, nd_tb, by = "library_id", multiple = "all") %>%
         filter(!is.na(type)) %>%
         group_by(ct_subcluster, type) %>%
         summarize(
-            bicor = bicor(cluster_ct, score, use = "pairwise.complete.obs", pearsonFallback = "none")[, 1],
-            cor.test = tidy(cor.test(cluster_ct, score)),
+            bicor = bicor_trycatch(cluster_ct, score),
+            cor.test = cor_trycatch(cluster_ct, score),
+            .groups = "drop"
+        )
+
+    meta_nd_tb <- meta_nd_tb %>%
+        group_by(ct_subcluster, type) %>%
+        mutate(
             cor.pval = cor.test$p.value,
             cor.fdr = p.adjust(cor.pval),
             cor.signif = symnum_signif(cor.pval, cor.fdr),
             .groups = "drop"
         )
     # fill in subclusters that didn't have a sample in nd_tb
-    meta_nd_tb <- meta_nd_tb %>% complete(expand(meta_nd_tb, ct_subcluster, type))
-
+    meta_nd_tb <- meta_nd_tb %>% ungroup %>% complete(expand(meta_nd_tb, ct_subcluster, type))
 
     return(meta_nd_tb)
 }
@@ -333,7 +344,7 @@ mk_beta_marker_heatmaps <- function(marker_data, beta_hclust, marker_tb, row_hcl
                     height <- unit(nrow(marker_ord_data) * 10, "mm")
                     heat <- Heatmap(
                         marker_ord_data,
-                        name = "gene beta",
+                        name = str_glue("gene beta {.y$group}"),
                         col = colormap,
                         na_col = "grey75",
                         cluster_columns = beta_hclust,
@@ -559,7 +570,6 @@ mk_nd_heatmap <- function(nd_data) {
     Heatmap(
         nd_mtx,
         name = "library count bicor",
-        row_title = " (b) ",
         cell_fun = plot_text_label,
         col = colormap,
         height = unit(20, "mm"),

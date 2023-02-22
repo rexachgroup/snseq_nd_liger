@@ -3,28 +3,23 @@ set.seed(0)
 liblist <- c("Seurat", "tidyverse", "readxl", "WGCNA", "broom")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 in_seurat_liger <- "../analysis/seurat_lchen/liger_subcluster_metadata.rds"
-in_bulk_meta <- "../resources/individual_nd.rds"
+in_nd_tb <- "../analysis/bulk_meta/nd_tb.rds"
 out_path_base <- "../analysis/seurat_lchen/liger_subcluster_bicor/"
 clusters_exclude_file <- "../resources/subclusters_removed_byQC_final.xlsx"
 
 main <- function() {
     dir.create(out_path_base, recursive = FALSE, showWarnings = FALSE)
     liger_meta_in <- readRDS(in_seurat_liger)
-    bulk_meta <- readRDS(in_bulk_meta)
-    excludes <- read_xlsx(clusters_exclude_file)
-    
-    nd_tb <- bulk_meta %>%
-        mutate(Autopsy.ID = paste0("P", Autopsy.ID)) %>%
-        group_by(Autopsy.ID, type) %>%
-        slice_head(n = 1) %>%
-        select(Autopsy.ID, type, score)
-    
+    excludes <- read_xlsx(clusters_exclude_file) 
+    nd_tb <- readRDS(in_nd_tb)
+
     library_celltype_counts_full <- liger_meta_in %>%
         filter(cluster_cell_type == cell_type) %>%
         group_by(library_id, ct_subcluster) %>%
         summarize(
             autopsy_id = unique(autopsy_id),
             clinical_dx = unique(clinical_dx),
+            region = unique(region),
             cell_type = unique(cell_type),
             age = unique(age),
             pmi = unique(pmi),
@@ -37,52 +32,24 @@ main <- function() {
 
     dx_splits <- tibble(dx_filter = list(dx_only = c("AD", "PiD", "PSP"), all = c("AD", "PiD", "PSP", "Control")), dx_type = names(dx_filter))
 
-    meta_nd <- inner_join(library_celltype_counts_full, nd_tb, by = c("autopsy_id" = "Autopsy.ID")) %>%
-        filter(!is.na(type)) %>%
-        group_by(ct_subcluster, type)
-
-    dx_bicor_splits <- dx_splits %>%
-        mutate(nd_bicor_tb = pmap(., function(...) {
-                cr <- list(...)
-                writeLines(str_glue("{paste(cr$dx_filter, collapse = ' ')}"))
-                meta_nd_tb <- meta_nd %>%
-                    filter(clinical_dx %in% cr$dx_filter) %>%
-                    summarize(
-                        bicor = bicor_trycatch(cluster_ct, score),
-                        cell_type = unique(cell_type),
-                        cor.test = cor_trycatch(cluster_ct, score),
-                        cor.pval = cor.test$p.value,
-                        .groups = "drop"
-                    )
-                meta_nd_tb <- meta_nd_tb %>%
-                    group_by(cell_type) %>%
-                    mutate(cor.fdr = p.adjust(cor.pval))
-                return(meta_nd_tb)
-            })
-        )
-    dx_bicor_pivot <- dx_bicor_splits %>%
-        unnest(nd_bicor_tb) %>%
-        select(ct_subcluster, dx_type, type, bicor, cor.pval, cor.fdr) %>%
-        pivot_wider(id_cols = c("ct_subcluster"), names_from = c("dx_type", "type"), values_from = c("bicor", "cor.pval", "cor.fdr"), names_sep = "-")
-
     meta_test_vars <- c("age", "pmi")
     meta_bicor_splits <- dx_splits %>%
         mutate(nd_bicor_tb = pmap(., function(...) {
-                cr <- list(...)
-                meta_tb <- library_celltype_counts_full %>%
-                    filter(clinical_dx %in% cr$dx_filter) %>%
-                    group_by(ct_subcluster) %>%
-                    summarize(
-                        cell_type = unique(cell_type), 
-                        across(all_of(meta_test_vars), function(x) { bicor_trycatch(x, cluster_ct) }, .names = "bicor_{.col}"), 
-                        across(all_of(meta_test_vars), function(x) { cor_trycatch(x, cluster_ct)}, .names = "cor_{.col}"),
-                        across(all_of(paste0("cor_", meta_test_vars)), function(x) { x$p.value }, .names = "pval_{.col}")
-                    )
-                meta_tb <- meta_tb %>%
-                    group_by(cell_type) %>%
-                    mutate(across(all_of(paste0("pval_cor_", meta_test_vars)), function(x) { p.adjust(x) }, .names = "fdr_{.col}"))
-                return(meta_tb)
-            }))
+            cr <- list(...)
+            meta_tb <- library_celltype_counts_full %>%
+                filter(clinical_dx %in% cr$dx_filter) %>%
+                group_by(ct_subcluster) %>%
+                summarize(
+                    cell_type = unique(cell_type), 
+                    across(all_of(meta_test_vars), function(x) { bicor_trycatch(x, cluster_ct) }, .names = "bicor_{.col}"), 
+                    across(all_of(meta_test_vars), function(x) { cor_trycatch(x, cluster_ct)}, .names = "cor_{.col}"),
+                    across(all_of(paste0("cor_", meta_test_vars)), function(x) { x$p.value }, .names = "pval_{.col}")
+                )
+            meta_tb <- meta_tb %>%
+                group_by(cell_type) %>%
+                mutate(across(all_of(paste0("pval_cor_", meta_test_vars)), function(x) { p.adjust(x) }, .names = "fdr_{.col}"))
+            return(meta_tb)
+        }))
 
     meta_bicor_unnest <- meta_bicor_splits %>%
         unnest(nd_bicor_tb) %>%
@@ -92,7 +59,7 @@ main <- function() {
 
     liger_meta <- liger_meta_in %>%
         group_by(ct_subcluster) %>%
-        filter(!ct_subcluster %in% excludes$ct_subcluster)
+        filter(!ct_subcluster %in% excludes$ct_subcluster, clinical_dx != "Control")
 
     nd_data_ct <- liger_meta %>%
         group_by(cluster_cell_type) %>%
@@ -104,16 +71,15 @@ main <- function() {
         mutate(nd_data = map(data, mk_nd_data, nd_tb))
 
     nd_data_ct %>%
-        unnest_wider(nd_data) %>%
+        unnest(nd_data) %>%
         select(-data, -cor.test) %>%
-        write_csv(file.path(out_path_base, "fdr_celltype_ndscore_bicor_tests.csv"))
+        write_csv(file.path(out_path_base, "fdr_celltype_ndscore_bicor_tests_dxonly.csv"))
 
     nd_data_ct_region %>%
         unnest(nd_data) %>%
         select(-data, -cor.test) %>%
-        write_csv(file.path(out_path_base, "fdr_celltype_region_ndscore_counts_bicor_tests.csv"))
+        write_csv(file.path(out_path_base, "fdr_celltype_region_ndscore_counts_bicor_tests_dxonly.csv"))
 
-    #write_csv(dx_bicor_pivot, file.path(out_path_base, "ndscore_bicor_tests.csv"))
     write_csv(meta_bicor_unnest, file.path(out_path_base, "meta_bicor_tests.csv"))
 }
 
@@ -125,6 +91,7 @@ mk_nd_data <- function(liger_meta, nd_tb) {
         summarize(
             autopsy_id = unique(autopsy_id),
             clinical_dx = unique(clinical_dx),
+            region = unique(region),
             age = unique(age),
             pmi = unique(pmi),
             sex = unique(sex),
@@ -136,25 +103,26 @@ mk_nd_data <- function(liger_meta, nd_tb) {
         )
 
     # bicor / cor.test on cell counts per subcluster.
-    meta_nd_tb <- left_join(library_celltype_counts_full, nd_tb, by = c("autopsy_id" = "Autopsy.ID")) %>%
+    meta_nd_tb <- inner_join(library_celltype_counts_full, nd_tb, by = c("library_id"), multiple = "all") %>%
         filter(!is.na(type)) %>%
         group_by(ct_subcluster, type) %>%
         summarize(
-            bicor = bicor(cluster_ct, score, use = "pairwise.complete.obs", pearsonFallback = "none")[, 1],
-            cor.test = tidy(cor.test(cluster_ct, score)),
-            cor.pval = cor.test$p.value,
-            cor.fdr = p.adjust(cor.pval),
-            cor.signif = symnum_signif(cor.pval, cor.fdr),
+            bicor = bicor_trycatch(cluster_ct, score),
+            cor.test = cor_trycatch(cluster_ct, score),
             .groups = "drop"
         )
+
+    # do fdr correction per nd type.
     meta_nd_tb <- meta_nd_tb %>%
         group_by(type) %>%
         mutate(
+            cor.pval = cor.test$p.value,
             cor.fdr = p.adjust(cor.pval),
+            cor.n = n(),
             cor.signif = symnum_signif(cor.pval, cor.fdr)
         )
     # fill in subclusters that didn't have a sample in nd_tb
-    meta_nd_tb <- meta_nd_tb %>% complete(expand(meta_nd_tb, ct_subcluster, type))
+    meta_nd_tb <- meta_nd_tb %>% ungroup %>% complete(expand(meta_nd_tb, ct_subcluster, type))
 
     return(meta_nd_tb)
 }
