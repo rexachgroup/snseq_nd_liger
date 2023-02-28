@@ -1,0 +1,15 @@
+﻿gene,celltype,bracket
+RBFOX1,oligodendrocyte,RBFOX1
+CNTNAP2,oligodendrocyte,RBFOX1
+PLP1,oligodendrocyte,PLP1
+SCD5,oligodendrocyte,PLP1
+BCAS1,oligodendrocyte,BCAS1
+GPX4,oligodendrocyte,BCAS1
+QDPR,oligodendrocyte,stress
+CRYAB,oligodendrocyte,stress
+KCNK1,oligodendrocyte,stress
+SPP1,oligodendrocyte,stress
+QKI,oligodendrocyte,newly_formed
+BPTF,oligodendrocyte,newly_formed
+DPYD,oligodendrocyte,F
+PKP4,oligodendrocyte,F

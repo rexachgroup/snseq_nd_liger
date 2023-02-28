@@ -1,0 +1,17 @@
+﻿gene,celltype,group
+DCLK2,astrocyte,fibrous
+ITPKB,astrocyte,fibrous
+GFAP,astrocyte,stressed
+AQP4,astrocyte,stressed
+PON2,astrocyte,stressed
+CST3,astrocyte,stressed
+SLC1A2,astrocyte,homeostatic
+SLC1A3,astrocyte,homeostatic
+MACF1,astrocyte,homeostatic
+PRKCA,astrocyte,homeostatic
+TRPM3,astrocyte,synaptic adhesion
+CADM2,astrocyte,synaptic adhesion
+FAM107A,astrocyte,np
+MAP1B,astrocyte,np
+NAT8L,astrocyte,modulatory
+APOE,astrocyte,modulatory

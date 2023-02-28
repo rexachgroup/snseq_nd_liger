@@ -1,0 +1,16 @@
+﻿gene,celltype,group
+QKI,opc,differentiating
+PIP4K2A,opc,pre-mylenating
+PCHD15,opc,proliferating
+ZEB1,opc,proliferating
+TIAM1,opc,migration
+NCOA1,opc,NDMA-directed
+CAMK2D,opc,NDMA-directed
+KCNMA1,opc,NDMA-directed
+PTPRD,opc,axonal
+NRG3,opc,axonal
+HS6ST3,opc,axonal
+TNR,opc,axonal
+DSCAM,opc,axonal
+SEMA3E,opc,axonal
+GPC5,opc,axonal

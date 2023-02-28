@@ -1,0 +1,42 @@
+﻿gene,celltype,bracket
+SLCO2B1,microglia,homeostatic
+TGFBR1,microglia,homeostatic
+SPP1,microglia,debirs-clearing
+FTL,microglia,debirs-clearing
+ATP2C1,microglia,secretory-endosome
+SORL1,microglia,secretory-endosome
+HS3ST4,microglia,secretory-endosome
+FRMD4A,microglia,secretory-endosome
+FAM49B,microglia,plaque associated
+PLXDC2,microglia,plaque associated
+NEAT1,microglia,plaque associated
+TANC2,microglia,plaque associated
+FKBP5,microglia,plaque associated
+PRNP,microglia,inflammatory
+SLC26A3,microglia,inflammatory
+MALAT1,microglia,neuroprotective
+RBM47,microglia,neuroprotective
+FMN1,microglia,neuroprotective
+AUTS2,microglia,myelinating
+VPS35,microglia,myelinating
+RTN4,microglia,myelinating
+PLP1,microglia,myelinating
+CD74,microglia,damage genes
+APOE,microglia,damage genes
+CD9,microglia,damage genes
+TREM2,microglia,damage genes
+TYROBP,microglia,damage genes
+AXL,microglia,damage genes
+SPP1,microglia,damage genes
+IRF8,microglia,damage genes
+CTSN,microglia,damage genes
+P2YR12,microglia,homeostatic
+NAV3,microglia,homeostatic
+CSF1R,microglia,homeostatic
+DOCK4,microglia,homeostatic
+EIF4G3,microglia,homeostatic
+RUNX2,microglia,homeostatic
+ELMO1,microglia,homeostatic
+LRCH1,microglia,homeostatic
+CELF2,microglia,other
+RANBP9,microglia,other

@@ -1,0 +1,11 @@
+gene,celltype,group
+GAD1,inhibitory,A
+GAD2,inhibitory,A
+SOX6,inhibitory,B
+NEGR1,inhibitory,B
+LAMP5,inhibitory,C
+CACNA2D1,inhibitory,C
+MEIS2,inhibitory,D
+ADAMTS19,inhibitory,D
+HSP90AA1,inhibitory,stress
+UQCR10,inhibitory,stress

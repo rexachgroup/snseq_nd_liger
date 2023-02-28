@@ -1,0 +1,15 @@
+﻿gene,celltype,group
+HIPK3,endothelia,capillary anginogenesis
+CRIM1,endothelia,capillary anginogenesis
+TJP1,endothelia,tight junction
+CEMIP2,endothelia,tight junction
+FLT1,endothelia,growth
+ERG,endothelia,growth
+CSMD1,endothelia,growth
+ABCB1,endothelia,growth
+SLC16A1,endothelia,BBB
+CLDN5,endothelia,BBB
+IFITM3,endothelia,immune
+B2M,endothelia,immune
+TMSB4X,endothelia,immune
+TMSB10,endothelia,immune
