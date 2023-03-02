@@ -32,15 +32,9 @@ main <- function() {
     cluster_wk_in <- readRDS(in_cluster_dge_wk)
     cluster_wk_dx_in <- readRDS(in_cluster_dx_dge_wk)
     liger_meta_in <- readRDS(in_seurat_liger)
-    bulk_meta <- readRDS(in_bulk_meta)
     excludes <- read_xlsx(clusters_exclude_file)
-    limma_tb <- readRDS(in_limma)
 
     marker_tb <- read_marker_tb(liger_meta_in, marker_dir)
-
-    nd_tb <- readRDS(in_nd_tb)
-
-    scenic_tb <- read_scenic(in_scenic_modules)
 
     cluster_dge_wk <- cluster_wk_in %>%
         filter(!ct_subcluster %in% excludes$ct_subcluster) %>%
@@ -63,23 +57,10 @@ main <- function() {
     # data prep
     cluster_ct_group <- mutate(cluster_ct_group, dge_plot_tb = map(dge_data, filter_var_genes, filter_genes_all_regions = TRUE))
     cluster_ct_group <- mutate(cluster_ct_group, dge_hclust = map(dge_plot_tb, mk_dge_hclust))
-    #seurat_obj <- readRDS(in_seurat_rds)
-    #cluster_ct_group <- mutate(cluster_ct_group, gene_expr_data = pmap(list(liger_meta, markers), mk_gene_data, seurat_obj))
-    # drop seurat_obj after data prep
-    #rm(seurat_obj)
-    #gc()
-    #cluster_ct_group <- mutate(cluster_ct_group, dge_dx_data = pmap(list(data, markers), fmt_cluster_dx_dge, cluster_wk_dx_in))
-    #cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_data = map(liger_meta, mk_cluster_counts_data))
-    #cluster_ct_group <- mutate(cluster_ct_group, dge_marker_data = pmap(list(dge_data, dge_hclust, markers), mk_beta_marker_data))
-    #cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, nd_tb))
+    cluster_ct_group <- mutate(cluster_ct_group, dge_marker_data = pmap(list(dge_data, dge_hclust, markers), mk_beta_marker_data))
  
     # plotting
-    #cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
-    #cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
-    #cluster_ct_group <- mutate(cluster_ct_group, dge_dx_annot = pmap(list(dge_dx_data, dge_data, dge_hclust), mk_dge_dx_annot))
     cluster_ct_group <- mutate(cluster_ct_group, dge_marker_heatmap = pmap(list(dge_marker_data, dge_hclust, markers), mk_grouped_beta_marker_heatmap))
-    #cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
-    #cluster_ct_group <- mutate(cluster_ct_group, cluster_nd_heatmap = map(nd_correlation, mk_nd_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, region_colorbar = map(data, mk_region_colorbar))
     cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(cluster_ct_group, mk_combo_heatmap))
 
