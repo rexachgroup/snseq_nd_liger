@@ -22,14 +22,14 @@ main <- function() {
         group_by(library_id) %>%
         mutate(percent_of_library = n / sum(n)) %>%
         arrange(region, clinical_dx, cluster_celltype_layer) %>%
-        left_join(nd_tb_wd, by = c("autopsy_id", "region"))
+        left_join(nd_tb_wd, by = c("library_id", "autopsy_id", "region"))
 
     # library summary.
     aut_sum <- cluster_layer_dat %>%
         group_by(autopsy_id, region) %>%
         summarize(n = sum(n),clinical_dx = first(clinical_dx), age = first(age), pmi = first(pmi), sex = first(sex), composite = first(composite), nd = first(nd), tau = first(tau))
 
-    # dx and region-specific summaries.
+    # dx + region-specific cell count summaries.
     region_sum <- cluster_layer_dat %>%
         group_by(region) %>%
         summarize(n = sum(n))
@@ -42,8 +42,9 @@ main <- function() {
         group_by(clinical_dx, region) %>%
         summarize(n = sum(n))
     
-    # library and celltype summaries
-    lib_sum <- cluster_layer_dat %>%
+    
+    # library and celltype count summaries.
+    lib_ct_sum <- cluster_layer_dat %>%
         group_by(library_id) %>%
         summarize(n = sum(n))
     
@@ -51,15 +52,21 @@ main <- function() {
         group_by(cluster_celltype_layer) %>%
         summarize(n = sum(n))
 
+    # library summaries across region / sex.
+    lib_sum <- aut_sum %>%
+        group_by(region, clinical_dx) %>%
+        summarize(n = n(), m = sum(sex == "M"), f = sum(sex == "F"), pmi = mean(pmi))
+
     write.xlsx(
         list(
             full_table = cluster_layer_dat,
-            group_by_autopsy_id = aut_sum,
-            group_by_celltype = celltype_sum,
-            group_by_region = region_sum,
-            group_by_dx = dx_sum,
-            group_by_dx_region = dxreg_sum,
-            group_by_library_id = lib_sum,
+            lib_summary = lib_sum,
+            ct_group_by_autopsy_id = aut_sum,
+            ct_group_by_celltype = celltype_sum,
+            ct_group_by_region = region_sum,
+            ct_group_by_dx = dx_sum,
+            ct_group_by_dx_region = dxreg_sum,
+            ct_group_by_library_id = lib_ct_sum,
             ts = plot_ts()
         ),
         file.path(out_dir, "cluster_celltype_layer_proportions.xlsx")
