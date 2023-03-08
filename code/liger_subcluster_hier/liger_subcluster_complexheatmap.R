@@ -57,7 +57,7 @@ main <- function() {
         filter(liger_meta_in, ct_subcluster %in% data$ct_subcluster)
     }))
 
-    writeLines("get enrichment broom data")
+    writeLines("get liger subcluster enrichment broom data")
     cluster_ct_group <- mutate(cluster_ct_group,
         dge_data = map(data, ~tryCatch(fmt_cluster_dge(.), error = function(x) {print(x); return(NA)}))
     ) %>%
@@ -84,7 +84,7 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_data = pmap(list(dge_data, dge_hclust), mk_cluster_limma_data, limma_tb))
     writeLines("run bicor of nd data against cluster cell counts")
     cluster_ct_group <- mutate(cluster_ct_group, nd_correlation = map(liger_meta, mk_nd_data, nd_tb))
-    
+ 
     writeLines("plot format")
     cluster_ct_group <- mutate(cluster_ct_group, dge_base_heatmap = pmap(list(dge_plot_tb, dge_hclust), mk_beta_heatmap))
     cluster_ct_group <- mutate(cluster_ct_group, gene_expr_annot = map(gene_expr_data, mk_gene_annot))
@@ -93,6 +93,7 @@ main <- function() {
     cluster_ct_group <- mutate(cluster_ct_group, cluster_counts_annot = map(cluster_counts_data, mk_cluster_counts_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_limma_annot = map(cluster_limma_data, mk_cluster_limma_annot))
     cluster_ct_group <- mutate(cluster_ct_group, cluster_nd_heatmap = map(nd_correlation, mk_nd_heatmap))
+    cluster_ct_group <- mutate(cluster_ct_group, region_colorbar = map(data, mk_region_colorbar))
     cluster_ct_group <- mutate(cluster_ct_group, dge_combo_heatmap = pmap(cluster_ct_group, mk_combo_heatmap))
 
     writeLines("write pdf")
@@ -103,11 +104,11 @@ main <- function() {
 
         tmp_pdf <- function(w, h) { pdf(tempfile(), w, h) }
 
-        if (nrow(cr$dge_marker_data) > 1) {
-            height <- unit((0.5 * nrow(cr$dge_marker_data) + nrow(cr$markers)) + 2, "cm")
-        } else {
-            height <- unit(10, "cm")
-        }
+        height <- unit(max(
+            (0.10 * nrow(cr$dge_marker_data) + nrow(cr$markers)) + 5,
+            20
+        ), "cm")
+
         heatmap_gtree <- grid.grabExpr(
             draw(cr$dge_combo_heatmap, heatmap_legend_list = c(cr$cluster_counts_annot$legends, cr$cluster_limma_annot$legends)),
             wrap = TRUE,
@@ -365,10 +366,10 @@ mk_beta_marker_heatmaps <- function(marker_data, beta_hclust, marker_tb, row_hcl
 mk_gene_annot <- function(gene_data) {
     annotation_height <- unit(10, "mm")
     heatmaps <- imap(gene_data, function(subcluster_expr_vec_list, gene_name){
-        columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "heatmap"), annotation_label = gene_name, annotation_height = annotation_height)
+        columnAnnotation(gene_expr_annot = anno_density(subcluster_expr_vec_list, type = "heatmap"), annotation_label = gene_name, annotation_height = annotation_height)
     })
     violins <- imap(gene_data, function(subcluster_expr_vec_list, gene_name){
-        columnAnnotation(gene = anno_density(subcluster_expr_vec_list, type = "violin"), annotation_label = gene_name, annotation_height = annotation_height)
+        columnAnnotation(gene_expr_violin = anno_density(subcluster_expr_vec_list, type = "violin"), annotation_label = gene_name, annotation_height = annotation_height)
     })
     #return(c(heatmaps, violins))
     return(heatmaps)
@@ -402,7 +403,7 @@ mk_dge_dx_annot <- function(dge_dx_data, dge_data, dge_hclust) {
     return(annots)
 }
 
-# compute cluster 
+# compute cluster counts data
 mk_cluster_counts_data  <- function(liger_meta) {
     cell_count <- liger_meta %>%
         group_by(ct_subcluster) %>%
@@ -500,13 +501,13 @@ mk_cluster_counts_annot <- function(count_data) {
                     annotation_label = "cells\nper\ndx",
                     annotation_height = unit(20, "mm"),
                     annotation_name_rot = 90 
-                ),
-                gene_annot = columnAnnotation(
-                    gene = anno_boxplot(count_data$gene_count, outline = FALSE),
-                    annotation_label = "genes\nper\ncell",
-                    annotation_height = unit(15, "mm"),
-                    annotation_name_rot = 90
                 )
+                #gene_annot = columnAnnotation(
+                #    genes_per_cell = anno_boxplot(count_data$gene_count, outline = FALSE),
+                #    annotation_label = "genes\nper\ncell",
+                #    annotation_height = unit(15, "mm"),
+                #    annotation_name_rot = 90
+                #)
             ),
             legends = list(
                 count_dx_annot = Legend(labels = dx_names, title = "dx", legend_gp = gpar(fill = dx_annot_colors))
@@ -549,6 +550,34 @@ mk_cluster_limma_annot <- function(limma_data) {
         )
     )
 
+}
+
+mk_region_colorbar <- function(meta) {
+    region_str <- as.character(fct_recode(meta[["region"]], "INS" = "insula", "V1" = "calcarine", "BA4" = "preCG"))
+    region_mat <- as.matrix(t(region_str))
+    colnames(region_mat) <- meta$ct_subcluster
+    colormap <- c("INS" = "white", "V1" = "gray", "BA4" = "black")
+    
+    plot_text_label <- function(j, i, x, y, w, h, col) {
+        label <- region_mat[i, j]
+        if (label == "BA4") {
+            textcolor <- "white"
+        } else {
+            textcolor <- "black"
+        }
+        if (!is.na(label)) {
+            grid.text(label, x, y, gp = gpar(fontsize = 6, col = textcolor))
+        }
+    }
+    Heatmap(
+        region_mat,
+        name = "region annotation",
+        cell_fun = plot_text_label,
+        col = colormap,
+        height = unit(10, "mm"),
+        cluster_columns = F,
+        cluster_rows = F
+    )
 }
 
 mk_nd_heatmap <- function(nd_data) {
@@ -595,6 +624,7 @@ mk_combo_heatmap <- function(...) {
     for (annot in cr$cluster_limma_annot$annotations) {
         hmap <- hmap %v% annot
     }
+    hmap <- hmap %v% cr$region_colorbar
     # names are dropped after adding annotations. recover by manually adding text annotation.
     # col_labels are reordered during heatmap draw -- don't reorder manually
     base_col_labels <- cr$dge_hclust$labels
