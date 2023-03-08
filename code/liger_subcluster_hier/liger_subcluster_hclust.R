@@ -47,7 +47,7 @@ main <- function() {
     pwalk(cluster_ct_group, function(...) {
         cr <- list(...)
         rds_path <- file.path(out_path_base, str_glue("dge_enrichment_{cr$cluster_cell_type}_hclust.rds"))
-        saveRDS(list(top_var_genes = cr$beta_hclust_data$top_var_genes, hclust = cr$beta_hclust_data$hclust), rds_path)
+        saveRDS(list(matrix = cr$beta_hclust_data$matrix, hclust = cr$beta_hclust_data$hclust), rds_path)
         print(rds_path)
     })
     
@@ -56,6 +56,29 @@ main <- function() {
         select(cluster_cell_type, hclust) %>%
         saveRDS(file.path(out_path_base, "dge_enrichment_var_beta_hclust.rds"), compress = FALSE)
 
+}
+
+filter_var_genes <- function(dge_data, filter_genes_all_regions = FALSE) {
+    if (filter_genes_all_regions) {
+        gene_dge_list <- dge_data %>%
+            group_by(gene) %>% 
+            filter(length(unique(region)) == length(unique(dge_data$region)))
+    } else {
+        gene_dge_list <- dge_data %>%
+            group_by(gene) 
+    }
+
+    top_var_genes <- gene_dge_list %>%
+        summarize(beta_var = var(beta)) %>%
+        arrange(desc(beta_var)) %>%
+        slice_head(n = 100)
+    
+    dge_plot_tb <- dge_data %>%
+        filter(gene %in% top_var_genes$gene) %>%
+        arrange(var(beta)) %>%
+        group_by(gene)
+    
+    return(dge_plot_tb)
 }
 
 cluster_worker <- function(cluster_wk) { 
@@ -72,22 +95,12 @@ cluster_worker <- function(cluster_wk) {
     enrichment_dge_list <- mutate(cluster_wk, broom_tb = pmap(cluster_wk, broom_tb_func)) %>%
         unnest(broom_tb)
 
-    top_var_genes <- enrichment_dge_list %>%
-        group_by(gene) %>%
-        filter(length(unique(region)) == length(unique(enrichment_dge_list$region))) %>%
-        summarize(beta_var = var(beta)) %>%
-        arrange(desc(beta_var)) %>%
-        slice_head(n = 100)
-    
-    dge_plot_tb <- enrichment_dge_list %>%
-        filter(gene %in% top_var_genes$gene) %>%
-        arrange(var(beta)) %>%
-        group_by(gene)
+    dge_plot_tb <- filter_var_genes(enrichment_dge_list, filter_genes_all_regions = T)
 
     dge_beta_matrix <- pivot_matrix(dge_plot_tb, "ct_subcluster", "beta", "gene")
     beta_hclust <- hclust(dist(t(dge_beta_matrix)))
     beta_heatmap <- heatmap_text_matrix(dge_plot_tb, "gene", "ct_subcluster", "beta", row_hclust = beta_hclust, legend_name = "DGE beta")
-    return(list(var_genes = top_var_genes, matrix = dge_beta_matrix, hclust = beta_hclust, heatmap = beta_heatmap))
+    return(list(matrix = dge_beta_matrix, hclust = beta_hclust, heatmap = beta_heatmap))
 }
 
 pivot_matrix <- function(tb, cols_from, values_from, rows_from) {
