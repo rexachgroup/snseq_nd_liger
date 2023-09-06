@@ -3,10 +3,10 @@ options(deparse.max.lines = 5)
 liblist <- c("Seurat", "tidyverse", "readxl", "batchtools", "lme4", "lmerTest", "future.apply", "broom.mixed")
 l <- lapply(liblist, require, character.only = TRUE, quietly = TRUE)
 
-batchtools <- "../../analysis/seurat_lchen/cellbender/dge/batchtools"
 cellbender_tb <- "../../analysis/seurat_lchen/cellbender/merge/cellbender_region.rds"
 in_seurat_meta <- "../../analysis/pci_import/pci_seurat_meta.rds"
-OUT_DIR <- "../../analysis/seurat_lchen/cellbender/dge/"
+OUT_DIR <- "../../analysis/seurat_lchen/cellbender/dge_no_logumi/"
+batchtools <- file.path(OUT_DIR, "batchtools")
 
 RESOURCES <- list(
     ncpus = 1,
@@ -19,7 +19,7 @@ RESOURCES <- list(
 )
 prop_detected_filter <- 0.1
 chunk_size <- 5
-model_designs <- c("expression ~ clinical_dx + pmi + age + sex + log_number_umi + percent_mito + (1 | library_id)")
+model_designs <- c("expression ~ clinical_dx + pmi + age + sex + number_umi + percent_mito + (1 | library_id)")
     
 main <- function() {
     dir.create(OUT_DIR)
@@ -147,14 +147,16 @@ run_lmer_de <- function(
     # Downsample if down_sample_cells defined.
     if (!is.null(down_sample_cells) && ncol(seurat_obj) > down_sample_cells) {
         writeLines(str_glue("downsampling to {down_sample_cells}"))
-        sample_cells <- sample(colnames(seurat_obj), down_sample_cells)
-        common_bc <- intersect(sample_cells, meta$merge_barcode)
-        meta_s <- meta[match(common_bc, meta$merge_barcode),]
-        seurat_obj <- subset(seurat_obj, cells = common_bc)
+        use_cells <- sample(colnames(seurat_obj), down_sample_cells)
+    } else {
+        use_cells <- colnames(seurat_obj)
     }
+    common_bc <- intersect(use_cells, meta$merge_barcode)
+    meta_s <- meta[match(common_bc, meta$merge_barcode),]
+    seurat_obj <- subset(seurat_obj, cells = common_bc)
+    model <- as.formula(meta_s$model_design)
 
     expr_m <- GetAssayData(seurat_obj, slot = "data")
-    model <- as.formula(meta_s$model_design)
 
     run_lmer(expr_m, meta_s, model, cores)
 }
