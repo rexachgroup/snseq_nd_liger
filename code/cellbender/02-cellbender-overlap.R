@@ -85,6 +85,9 @@ main <- function() {
             out_path <- str_glue("{OUT_DIR}/cellbender_frac_cells_{cr$region}.pdf")
             plot_mat <- pivot_matrix(plot_meta, "library_id", "nonambient_frac", "ct_subcluster")
             is_excluded_subcluster <- rownames(plot_mat) %in% excludes$ct_subcluster
+            subcluster_order <- order(is_excluded_subcluster)
+            is_excluded_subcluster <- is_excluded_subcluster[subcluster_order]
+            plot_mat <- plot_mat[subcluster_order,]
             dx_lvls <- unique(plot_meta$clinical_dx) %>% str_sort %>% fct_relevel("Control") %>% levels
             dx_map <- plot_meta[match(colnames(plot_mat), plot_meta$library_id),]$clinical_dx
 
