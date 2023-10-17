@@ -11,7 +11,7 @@ OUT_DIR <- "../../analysis/seurat_lchen/subcluster_excluded_dge/seurat_filter/"
 
 main <- function() {
     dir.create(OUT_DIR, recursive = T)
-    sobj <- readRDS(in_seurat_sobj)   
+    #sobj <- readRDS(in_seurat_sobj)   
     liger_meta <- readRDS(in_liger_meta)
     excludes <- read_xlsx(clusters_exclude_file)
     cellbender_bc <- readRDS(cellbender_tb)
@@ -29,7 +29,7 @@ main <- function() {
     excludes_cellbender <- cellbender_bc %>%
         filter(
             !ct_subcluster %in% excludes$ct_subcluster,
-            cluster_cell_type == cell_type
+            cluster_cell_type == cell_type,
             latent_cell_probability >= 0.5,
             !cell_type %in% c("t_cell", "ependymal")
         )
@@ -77,3 +77,4 @@ cluster_celltype_v_celltype_breakdown <- function(sobj_meta, out_prefix, filter_
     write.csv(sobj_meta, str_glue("{out_prefix}_meta.csv"))
 }
 
+if (!interactive()) main()
