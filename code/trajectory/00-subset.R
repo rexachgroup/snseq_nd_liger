@@ -12,8 +12,7 @@ OUT_DIR <- "../../analysis/seurat_lchen/trajectory/insula-subset/"
 SUBCLUSTER_LIST <- c(
     "insula-excitatory-2",
     "insula-excitatory-5",
-    "insula-excitatory-6",
-    "insula-excitatory-7"
+    "insula-excitatory-6"
 )
 
 main <- function() {
