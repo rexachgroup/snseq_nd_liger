@@ -1,16 +1,5 @@
-# doublet_finder_nucseq-nd_dx_region.R
-
-# 2020-07-22
-# For nucseq-nd project
-# Running for each of the 3 brain regions
-# Have seurat objects already split by region
-# Splitting by clinical_dx to run doublet finder proc
-
-
-### options -----------------------------------------------------------------------------
-
-
-### Requirements ------------------------------------------------------------------------
+# rework doubletFinder
+# split seurat objects by region / clinical_dx
 library(readxl)
 library(cowplot)
 library(ggplot2)
@@ -19,9 +8,29 @@ library(gridExtra)
 library(Seurat)
 library(DoubletFinder)
 library(reticulate)
-# reticulate::use_python("/u/local/apps/python/3.7.2/bin/python3", required=TRUE)
 
-### Functions ---------------------------------------------------------------------------
+use_condaenv("../../conda/")
+source("01a_doublet_finder_overrides.R")
+
+IN_SOBJ <- "../../analysis/00_cellranger/seurat/original_all_cells_insula_nucseq-nd_seurat_object.rds"
+MARKERS_FILE <- "../../resources/20200703_cell_markers_refined.csv"
+OUT_DIR <- "../../analysis/01_doubletfinder/"
+
+# plot params
+PT_SIZE <- 0.5
+# doubletfinder params
+NUM_PCs <- 40
+DOUBLET_RATE <- 0.076
+TAR_PN <- 0.25
+MD_GROUPS <- c(
+  "library_id",
+  "clinical_dx", 
+  "cluster_cell_type",
+  "finalsite",
+  "age",
+  "sex"
+)
+
 ggColorHue <- function(n) {
   hues = seq(15, 375, length = n + 2)
   hcl(h = hues, l = 65, c = 100)[1:n]
@@ -46,9 +55,11 @@ createSubDirs <- function(out_dir, tar_dirs) {
   }
 }
 
-createOuputDirs <- function(tar_dirs) {
+createOuputDirs <- function(tar_dirs, out_dir = NULL) {
   # Create master directory structure for graphical outputs
-  out_dir <- paste0(format(Sys.Date(), "%Y_%m_%d"), "/")
+  #out_dir <- paste0(format(Sys.Date(), "%Y_%m_%d"), "/")
+  if (is.null(out_dir))
+    out_dir <- paste0(format(Sys.Date(), "%Y_%m_%d"), "/")
   if (!dir.exists(out_dir)) {
     dir.create(out_dir, recursive=FALSE)
   }
@@ -314,63 +325,67 @@ runSeuratPreProcess <- function(
   # Run through Seurat Pipeline to process data for doubletFinder
   # Takes subsetted object from main object and re-processes
   # Returns a seurat object
-  s_obj <- FindVariableFeatures(
-    s_obj, 
-    selection.method = "vst", 
-    nfeatures = 2000
-  )
-  s_obj <- ScaleData(s_obj, features = VariableFeatures(s_obj))
-  s_obj <- RunPCA(
-    s_obj, 
-    features = VariableFeatures(object = s_obj), 
-    npcs = pc_dims
-  )
+  sobj_cache <- paste0(target_out_dir, target_str, "cluster_cache.rds")
+  #if (!file.exists(sobj_cache)) {
+      s_obj <- NormalizeData(s_obj)
+      s_obj <- FindVariableFeatures(
+        s_obj, 
+        selection.method = "vst", 
+        nfeatures = 2000
+      )
+      s_obj <- ScaleData(s_obj, features = VariableFeatures(s_obj))
+      s_obj <- RunPCA(
+        s_obj, 
+        features = VariableFeatures(object = s_obj), 
+        npcs = pc_dims
+      )
+      
+      elbow_file <- paste0(target_out_dir, target_str,"_pc_elbow_plot.png")
+      png(
+        elbow_file,  
+        width=10, height=8, res=300, units="in"
+      )
+      print(ElbowPlot(s_obj, ndims = pc_dims))
+      dev.off()
+      message(elbow_file, "\t...written to file")
   
-  elbow_file <- paste0(target_out_dir, target_str,"_pc_elbow_plot.png")
-  png(
-    elbow_file,  
-    width=10, height=8, res=300, units="in"
-  )
-  print(ElbowPlot(s_obj, ndims = pc_dims))
-  dev.off()
-  message(elbow_file, "\t...written to file")
-  
-  s_obj <- FindNeighbors(
-    object = s_obj, 
-    reduction = "pca", 
-    dims = 1:pc_dims, 
-    nn.eps = 0, 
-    k.param = 30
-  )
-  
-  s_obj <- RunUMAP(object = s_obj, dims = 1:pc_dims)
-  if (do_clustering) {
-    s_obj <- doSeuratClustering(
-      s_obj, 
-      out_dir = target_out_dir, 
-      dx_str = target_str,
-      start_res = 0.3,
-      end_res = 0.4
-    )
-  }
+      s_obj <- FindNeighbors(
+        object = s_obj, 
+        reduction = "pca", 
+        dims = 1:pc_dims, 
+        nn.eps = 0, 
+        k.param = 30
+      )
+      
+      s_obj <- RunUMAP(object = s_obj, dims = 1:pc_dims)
+      if (do_clustering) {
+        s_obj <- doSeuratClustering(
+          s_obj, 
+          out_dir = target_out_dir, 
+          dx_str = target_str,
+          start_res = 0.3,
+          end_res = 0.4
+        )
+      }
+      saveRDS(s_obj, sobj_cache, compress = FALSE)
+  #} else {
+  #  message(paste0("loading cached clustering from ", sobj_cache))
+  #  s_obj <- readRDS(sobj_cache)
+  #}
   s_obj
 }
 
-### Procedure ---------------------------------------------------------------------------
-main <- function(so_list) {
+df_pipeline <- function(so_list, out_dir_base) {
   set.seed(0xABCDEF)
   marker_genes <- read.csv(MARKERS_FILE)
   # create output dirs
-  dx <- sapply(region_list, function(r_obj) unique(r_obj@meta.data$clinical_dx))
-  region <- sapply(region_list, function(r_obj) unique(r_obj@meta.data$region))
-  # dx <- as.vector(unique(s_obj@meta.data$clinical_dx))
-  # region <- unique(s_obj@meta.data$region)
+  dx <- sapply(so_list, function(r_obj) unique(r_obj@meta.data$clinical_dx))
+  region <- sapply(so_list, function(r_obj) unique(r_obj@meta.data$region))
   tar_dirs <- paste(region, dx, sep="_")
-  out_dir <- createOuputDirs(tar_dirs)
+  out_dir <- createOuputDirs(tar_dirs, out_dir_base)
   
-  # i <- 1
   for (i in 1:length(so_list)) {
-    tar_so <- region_list[[i]]
+    tar_so_in <- so_list[[i]]
     # tar_so is the target seurat object, in this case the seurat object split by clinical dx
     dx_str <- tar_dirs[i]
     dx_dir <- paste0(out_dir, tar_dirs[i], "/")
@@ -379,7 +394,7 @@ main <- function(so_list) {
     
     # function(s_obj, target_str, target_out_dir, pc_dims = 70) 
     tar_so <- runSeuratPreProcess(
-      tar_so, 
+      tar_so_in, 
       target_str = dx_str,
       target_out_dir = dx_dir,
       pc_dims = NUM_PCs,
@@ -387,7 +402,7 @@ main <- function(so_list) {
     )
     
     ## DoubletFinder Procedure ----------------------------------------------------------
-    so_sweep_list <- paramSweep_v3(tar_so, PCs=1:NUM_PCs, sct=FALSE)
+    so_sweep_list <- paramSweep(tar_so, PCs=1:NUM_PCs, sct=FALSE)
     save(
       so_sweep_list, 
       file = paste0(dx_dir, dx_str,"_parameter_sweep_out_",NUM_PCs,"_pcs.rdata")
@@ -414,7 +429,7 @@ main <- function(so_list) {
     
     # Initial Run
     nExp_poi <- round(DOUBLET_RATE*ncol(tar_so))  
-    tar_so <- doubletFinder_v3(
+    tar_so <- doubletFinder(
       tar_so, 
       PCs = 1:NUM_PCs, 
       pN = TAR_PN,
@@ -430,7 +445,7 @@ main <- function(so_list) {
     nExp_poi.adj <- round(nExp_poi*(1-homotypic_prop))
     
     pANN_column <- paste0("pANN_",TAR_PN,"_", tar_pk, "_", nExp_poi)
-    tar_so <- doubletFinder_v3(
+    tar_so <- doubletFinder(
       tar_so, 
       PCs = 1:NUM_PCs, 
       pN = TAR_PN,
@@ -546,100 +561,14 @@ main <- function(so_list) {
   message("Process Complete!")
 }
 
-# memory of 160G was enough
+main <- function() {
+    sobj <- readRDS(IN_SOBJ)
+    region_list <- unique(sobj$region)
+    dx_list <- unique(sobj$clinical_dx)
+    sobj_split <- SplitObject(sobj, split.by = "clinical_dx")
+    rm(sobj)
+    gc()
+    df_pipeline(sobj_split, OUT_DIR)
+}
 
-######## Global 
-MARKERS_FILE <-
-  "/u/project/geschwind/dpolioud/nucseq_nd/resources/20200703_cell_markers_refined.csv"
-PT_SIZE <- 0.5
-NUM_PCs <- 40
-DOUBLET_RATE <- 0.076
-TAR_PN <- 0.25
-MD_GROUPS <- c(
-  "library_id",
-  "clinical_dx", 
-  "cluster_cell_type",
-  "finalsite",
-  "age",
-  "sex"
-)
-
-## Data & dirs --------------------------------------------------------------------------
-
-# seurat object: s_obj
-# tar_file <- "../calcarine_nd/2020_07_21/calcarine_nucseq-nd_no_v3_seurat_object.rds"
-tar_file <- "../insula_nd/2020_07_20/insula_nucseq-nd_seurat_object.rds"
-# tar_file <- "../precg_nd/2020_07_28/precg_nucseq-nd_seurat_object.rds"
-s_obj <- readRDS(tar_file)
-
-s_obj@meta.data[!duplicated(s_obj@meta.data$library_id), c("library_id", "region", "clinical_dx")]
-# fix insula/midinsula
-# s_obj@meta.data$region <- gsub("midInsula", "insula", s_obj@meta.data$region)
-
-# split by region
-region_list <- SplitObject(s_obj, split.by = "clinical_dx") 
-
-# for(e in region_list) { print(unique(e@meta.data$clinical_dx))}
-# # create output dirs
-# dx <- as.vector(unique(s_obj@meta.data$clinical_dx))
-# region <- unique(s_obj@meta.data$region)
-# tar_dirs <- paste(region, dx, sep="_")
-# out_dir <- createOuputDirs(tar_dirs)
-
-rm(s_obj)
-gc()
-
-main(region_list)
-
-
-
-
-
-#########################################################################################
-# sapply(ls(), function(x) object.size(get(x)))
-
-
-# Pre-process with Seurat piplines
-# clinical_so <- FindVariableFeatures(
-#   clinical_so, 
-#   selection.method = "vst", 
-#   nfeatures = 2000
-# )
-# clinical_so <- ScaleData(clinical_so)
-# clinical_so <- RunPCA(
-#   clinical_so, 
-#   features = VariableFeatures(object = clinical_so), 
-#   npcs = 100
-# )
-# 
-# elbow_file <- paste0(dx_dir, dx_str,"_pc_elbow_plot.png")
-# png(
-#   elbow_file,  
-#   width=10, height=8, res=300, units="in"
-# )
-# print(ElbowPlot(clinical_so, ndims = 100))
-# dev.off()
-# message(elbow_file, "\t...written to file")
-# 
-# clinical_so <- FindNeighbors(
-#   object = clinical_so, 
-#   reduction = "pca", 
-#   dims = 1:70, 
-#   nn.eps = 0, 
-#   k.param = 30
-# )
-# 
-# clinical_so <- RunUMAP(object = clinical_so, dims = 1:70)
-# clinical_so <- doSeuratClustering(
-#   clinical_so, 
-#   out_dir = dx_dir, 
-#   dx_str = dx_str,
-#   start_res = 0.3,
-#   end_res = 0.5
-# )
-
-# for(so in clinical_so_list) {print(unique(so@meta.data$clinical_dx))}
-# psp_so <- clinical_so_list[[1]]
-# psp_chems_list <- SplitObject(psp_so, split.by = "library_chemistry")
-
-# for(so in psp_chems_list) {print(unique(so@meta.data$library_chemistry)) }
+if (!interactive()) main()
