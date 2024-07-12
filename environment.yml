@@ -1,11 +1,12 @@
-name: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
   - r-base=4.1.3
+  - python=3.10
   - r-rcpp
+  - r-singlecellexperiment
   - r-lmertest
   - r-liger=0.5.0.9000
   - r-batchtools
@@ -29,6 +30,15 @@ dependencies:
   - r-ggfortify
   - r-spatstat
   - r-ggalt
-  - bioconductor-genomeinfodbdata
   - r-svglite
-prefix: /geschwindlabshares/lchenprj01/nucseq_nd_dpolioud/conda
+  - r-argparse
+  - bioconductor-aucell
+  - bioconductor-rcistarget
+  - bioconductor-genie3
+  - arboreto
+  - r-dt
+  - r-nmf
+  - r-r2html
+  - r-rtsne
+  - r-domc
+  - r-dorng
