@@ -1,5 +1,5 @@
 # Introduction
-This repo contains code for the scRNA analysis for Rexach et al. (2024). For the scATAC analysis see [rexachgroup/nd_atac_archr](https://github.com/rexachgroup/nd_atac_archr)
+This repo contains code for the RNA analysis for Rexach et al. (2024). For the scATAC analysis see [rexachgroup/nd_atac_archr](https://github.com/rexachgroup/nd_atac_archr)
 # Installation / Running
 Dependencies for this code are specified using a conda environment; create and activate the environment by running
 ```
@@ -27,8 +27,6 @@ Miscellaneous metadata operations.
 - Import neurodegeneration scores from bulk metadata file
 ## 14_seurat_azimuth
 Celltype annotation of Seurat clusters using the [Azimuth human motor cortex reference](https://azimuth.hubmapconsortium.org/references/#Human - Motor Cortex).
-## 15_seurat_azimuth_cibersortx
-CIBERSORTx deconvolution of the Azimuth-annotated clusters.
 ## 20_seurat_cluster_dge
 DGE analyses at Seurat cluster level.
 ## 21_liger_subcluster_dge
@@ -39,3 +37,5 @@ Re-calling excitatory cells by neuronal layer and differential expression across
 Subcluster cell type composition testing.
 ## 31_liger_subcluster_hier
 Hierarchical clustering of subclusters based on DGE beta.
+## 40_bulk_deconvolution
+Bulk RNA sample filtering, analysis, and Bisque / CIBERSORTx deconvolution.

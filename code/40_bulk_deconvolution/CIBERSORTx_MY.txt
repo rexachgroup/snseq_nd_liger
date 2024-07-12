@@ -1,0 +1,128 @@
+#Azimuth_ref sigmatrix generation 1/30/24
+#Create from Bakken 2021 data
+library(Seurat)
+library(dplyr)
+library(Matrix)
+library(org.Hs.eg.db)
+library(AnnotationDbi)
+
+df <- read.csv('../ALSFTD_meta/Bakken2021_M1_matrix.csv')
+meta <- read.csv('../ALSFTD_meta/Bakken2021_M1_metadata.csv')
+
+rownames(df) <- df[,1]
+df <- df[,-1]
+df2 <- t(df)
+df2 <- as.data.frame(df2)
+
+df2[,ncol(df2)+1] <- rownames(df2)
+df2 <- df2[,c(ncol(df2),1:ncol(df2)-1)]
+colnames(df2)[1] <- 'Gene'
+
+celltype <- meta$subclass_label
+colnames = c('Gene',celltype)
+colnames <- gsub(' ', '_', colnames)
+colnames <- gsub('/', '_', colnames)
+
+write.table(df2, file='./data/Azimuth_refRDS_sigmatrix_input/refsample.txt',sep='\t',quote=F,
+            row.names=F,col.names=colnames)
+
+#Create Signature Matrix
+TOKEN_FILE='../token'
+IMAGE='../images/fractions_latest.sif'
+email=MYamakawa@mednet.ucla.edu
+INPUT_DIR='../data/Azimuth_Bakken2021_sigmatrix_input'
+OUTPUT_DIR='../data/Azimuth_Bakken2021_sigmatrix_output'
+
+read -d '' email token < "$TOKEN_FILE";
+
+singularity run --pwd '/src' \
+    --writable-tmpfs \
+    --bind $INPUT_DIR:/src/data \
+    --bind $OUTPUT_DIR:/src/outdir \
+    $IMAGE \
+    --username $email \
+    --token $token \
+    --single_cell TRUE \
+    --refsample refsample.txt \
+    --mixture mixture_matrix_insula.txt \
+    --rmbatchSmode TRUE
+
+#Create Mixture data for each bulk RNA seq datasets
+#Insula
+a <- readRDS('multiExpr.rds') #bulk RNA seq of list of 7 count matrices
+a <- a[c(1,3:5)]
+cols <- colnames(a[['mid-insula']]$data)
+m <- regexpr("\\.",cols)
+cols2 <- substr(cols,1,m-1)
+
+anno <- AnnotationDbi::select(org.Hs.eg.db,keys=cols2,keytype='ENSEMBL',columns='SYMBOL')#25059 rows
+anno.2 <- na.omit(anno) #20359rows
+
+m <- pmatch(cols2, anno.2$ENSEMBL, nomatch=NA,duplicates.ok=TRUE) #length 24884, 5578 NAs
+df <- a[['mid-insula']]$data[,!is.na(m)] #35 x 19089
+df <- t(df)
+m2 <- na.omit(m) #length 19089
+rownames <- anno.2[m2,'SYMBOL']
+
+#rownames has to be unique
+rownames(df) <- rownames
+unique <- unique(rownames)
+
+m <- match(unique,rownames)
+df2 <- df[m,]
+df2 <- as.data.frame(df2)
+df2$Gene <- rownames(df2)
+df2 <- df2[,c(36,1:35)]
+
+write.table(df2,file='./data/insula_input/mixture_matrix_insula.txt',quote=F,sep="\t",row.names=F)
+
+#Run CIBERSORTx fraction.sif
+TOKEN_FILE='../token'
+IMAGE='../images/fractions_latest.sif'
+email=MYamakawa@mednet.ucla.edu
+INPUT_DIR='../data/calcarine_input'
+OUTPUT_DIR='../data/calcarine_output_Azimuth3'
+
+read -d '' email token < "$TOKEN_FILE";
+
+singularity run --pwd '/src' \
+    --writable-tmpfs \
+    --bind $INPUT_DIR:/src/data \
+    --bind $OUTPUT_DIR:/src/outdir \
+    $IMAGE \
+    --username $email \
+    --token $token \
+    --mixture mixture_matrix_calcarine.txt \
+    --sigmatrix CIBERSORTx_sigmatrix_Adjusted_Bakken.txt \
+
+#Statistical testing and visualization
+df <- read.delim('./data/calcarine_output_Azimuth3/CIBERSORTx_Results.txt',header=T,sep='\t')
+df <- df[,1:21]
+
+meta_pre <- meta[['Calcarine']]$data
+meta_pre$Mixture <- rownames(meta_pre)
+
+df2 <- merge(df,meta_pre,by='Mixture',all.x=TRUE)
+
+library(tidyr)
+df2 <- pivot_longer(df2,cols=2:21,names_to='cellType',values_to='fraction')
+df2 <- as.data.frame(df2)
+
+library(rstatix)
+# Statistical test
+stat.test <- df2 %>%
+  group_by(cellType) %>%
+  t_test(fraction ~ Primary.Neuropath.Dx,comparisons=list(c('Control','AD'),c('Control','PiD'),c('Control','PSP'))) %>%
+  adjust_pvalue(method = "fdr") %>%
+  add_significance()
+stat.test
+
+stat.test <- stat.test %>% add_xy_position(x = "Primary.Neuropath.Dx")
+
+pdf('./calcarine_azimuth_sc_as_sigmatrix3.pdf',12,12)
+ggboxplot(df2,x='Primary.Neuropath.Dx',y='fraction',fill='Primary.Neuropath.Dx',add='jitter')+facet_wrap(.~cellType,scales='free')+
+  stat_pvalue_manual(stat.test, label = "p.adj.signif")
+dev.off()
+
+write.csv(as.data.frame(stat.test[,1:11]),file='calcarine_statistics.csv',row.names=F,quote=F)
+
