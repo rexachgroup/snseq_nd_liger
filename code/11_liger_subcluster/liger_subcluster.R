@@ -22,7 +22,7 @@ require(SeuratWrappers)
 require(liger)
 require(tidyverse)
 require(reticulate)
-reticulate::use_condaenv("../conda/", required=TRUE)
+reticulate::use_condaenv("../../conda/", required=TRUE)
 reticulate::import("umap")
 reticulate::py_config()   # check to make sure it is configured
 source("function_library.R")
@@ -35,19 +35,17 @@ command_args <- commandArgs(trailingOnly = TRUE)
 print(command_args)
 
 ## Inputs
-in_seurat <- "/u/project/geschwind/dpolioud/nucseq_nd/analysis/seurat/20200816/pci_filtered_seurat_object.rdat"
+in_seurat <- "../..//analysis/seurat/20200816/pci_filtered_seurat_object.rdat"
 
 ## Variables
 script_name <- "liger_subcluster.R"
-date <- format(Sys.Date(), "%Y%m%d")
 graph_subtitle <- "P1-5 C1-5 I1-5, 8% MT filter, regress out log(number UMI)"
 
 ## Outputs
-out_seurat <- paste0(
-  "../analysis/seurat_lchen/liger_recluster/", date,
-  "/liger_subcluster_")
+out_seurat_path <- paste0(
+  "../analysis/seurat_lchen/liger_subcluster/liger_subcluster_")
 # Make directories
-dir.create(dirname(out_seurat), recursive = TRUE)
+dir.create(dirname(out_seurat_path), recursive = TRUE)
 ###########################################################################
 
 ### Main function
@@ -75,7 +73,7 @@ main_function <- function(){
 
   ## Outputs
   out_seurat <- paste0(
-    out_seurat,
+    out_seurat_path,
     paste0(dx_subset, collapse = "_"), "_", region_subset, "_",
     cell_type_subset,".rdat")
   out_seurat_test <- gsub(".rdat", "_test.rdat", out_seurat)
@@ -159,8 +157,7 @@ run_liger_suggest_k_and_lambda <- function(subset_so){
   out_graph <- assign(
     "out_graph",
     paste0(
-      "../analysis/liger_subcluster/", date,
-      "/p1-5_c1-5/percent_mt_8/reg_umi/k50_lambda3/graphs/liger_subcluster_",
+      dirname(out_seurat_path),
       paste0(dx_subset, collapse = "_"), "_", region_subset, "_",
       cell_type_subset, "_"),
     envir = .GlobalEnv)
