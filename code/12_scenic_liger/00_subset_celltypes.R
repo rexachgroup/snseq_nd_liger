@@ -12,8 +12,8 @@ OUT_DIR <- "../../analysis/12_liger_scenic/"
 CELLS_FILE <- "../../resources/scenic/cells_presampled.csv"
 GENES_FILE <- "../../resources/scenic/genes_presampled.csv"
 
-tar_regions <- c("insula")
-tar_ct <- c("oligodendrocyte")
+target_regions <- c("calcarine")
+target_celltype <- c("microglia")
 
 main <- function() {
     dir.create(OUT_DIR)
@@ -22,7 +22,7 @@ main <- function() {
     load(SOBJ_FILE)
     sobj <- nd_so
     
-    comb_tb <- expand_grid(regions = tar_regions, cluster_cell_type = tar_ct)
+    comb_tb <- expand_grid(regions = target_regions, cluster_cell_type = target_celltype)
     pwalk(comb_tb, function(...) {
         cr <- list(...)
         cells_s <- cells_tb %>% filter(region == cr$region, cluster_cell_type == cr$cluster_cell_type)
